@@ -1,31 +1,11 @@
-var express = require('express')
-var app = express()
-var bodyParser = require('body-parser')
-var fs = require('fs')
-var path = require('path')
-var http = require('http').Server(app)
-var io = require('socket.io')(http)
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const WebSocket = require('ws');
 
-/////////////////////////////////////////////////////////////////
-//This fixed the issue with long disconnecting times in browsers
-//The interval checks if player is connected every 1 seconds
-//If the player is disconnected for 5 second, they get booted
-/////////////////////////////////////////////////////////////////
-io.set('heartbeat interval', 1000);
-io.set('heartbeat timeout', 5000);
+const server = http.createServer();
 
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(bodyParser.urlencoded({
-	extended: true
-}))
-app.use(bodyParser.json())
-
-/////////////////////////////////
-//There are 3 game type options//
-//-random					   //
-//-createPrivate			   //
-//-joinPrivate				   //
-/////////////////////////////////
+const publicPath = path.join(__dirname, 'public');
 
 var gameType;
 function getGameType(gameQuery){
@@ -34,20 +14,73 @@ function getGameType(gameQuery){
 	}
 }
 
-app.get('/join', function(req, res){
-	res.sendFile(__dirname + '/views/join.html')
-})
+var gameQuery;
 
-app.get('/game', function(req, res){
-	gameQuery = req.query
-	getGameType(gameQuery)
-	res.sendFile(__dirname + '/views/game.html')
-})
+server.on('request', (req, res) => {
+    const url = req.url;
+    if (url.startsWith('/join')) {
+        const joinPath = path.join(__dirname, 'views', 'join.html');
+        fs.readFile(joinPath, 'utf-8', (err, data) => {
+            if (err) {
+                res.writeHead(500);
+                res.end('Internal Server Error');
+            } else {
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(data);
+            }
+        });
+    } else if (url.startsWith('/game')) {
+        gameQuery = require('url').parse(url, true).query;
+        getGameType(gameQuery);
+        const gamePath = path.join(__dirname, 'views', 'game.html');
+        fs.readFile(gamePath, 'utf-8', (err, data) => {
+            if (err) {
+                res.writeHead(500);
+                res.end('Internal Server Error');
+            } else {
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(data);
+            }
+        });
+    } else if (url === '/') {
+        const indexPath = path.join(__dirname, 'views', 'index.html');
+        fs.readFile(indexPath, 'utf-8', (err, data) => {
+            if (err) {
+                res.writeHead(500);
+                res.end('Internal Server Error');
+            } else {
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(data);
+            }
+        });
+    } else {
+        const filePath = path.join(publicPath, url);
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                res.writeHead(404);
+                res.end('Not Found');
+            } else {
+                const contentType = getContentType(filePath);
+                res.writeHead(200, { 'Content-Type': contentType });
+                res.end(data);
+            }
+        });
+    }
+});
 
-
-app.get('/', function(req, res){
-	res.sendFile(__dirname + '/views/index.html')
-})
+function getContentType(filePath) {
+    const extname = path.extname(filePath);
+    switch (extname) {
+        case '.js':
+            return 'text/javascript';
+        case '.css':
+            return 'text/css';
+        case '.html':
+            return 'text/html';
+        default:
+            return 'application/octet-stream';
+    }
+}
 
 function getRandomInt(min, max){
 	return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -91,12 +124,6 @@ function findOtherPlayer(playerId){
 //This is when you have the playerData
 function getOtherPlayer(player){
 	var playerData = gameRooms[player.roomId]
-	
-	//console.log("\nGame Rooms:")
-	//console.log(gameRooms)
-	
-	//console.log("\nRoom ID:")
-	//console.log(player.roomId)
 	
 	var otherPlayer;
 	
@@ -169,10 +196,15 @@ randomGame = initStartValues()
 
 gameRooms = {}
 
-io.on('connection', function(socket){
-	//console.log("\nConnection")
-		
+
+
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', function(socket) { 
+
+	socket.id = getRandomInt(1, 1000);
 	if (gameType == "random"){
+		
 		var joinInfo = {
 			id: socket.id,
 			roomId: randomGame.roomId,
@@ -184,18 +216,22 @@ io.on('connection', function(socket){
 				
 		randomGame.playerData.push(joinInfo)
 		
-		randomGame.usersOn ++
+		randomGame.usersOn++
 		
-		socket.emit("playersJoined", joinInfo)
+		socket.send(JSON.stringify({type: "playersJoined", data: joinInfo}));
+
 		
 		if (randomGame.usersOn > 2){
-			gameRooms[randomGame.roomId] = randomGame.playerData
-			io.to(randomGame.playerData[0].id).emit("gameStart")
-			io.to(randomGame.playerData[1].id).emit("gameStart")
+			gameRooms[randomGame.roomId] = randomGame.playerData;
+			wss.clients.forEach(function (client) {
+				client.send(JSON.stringify({type: "gameStart"}));
+			});
 			randomGame = initStartValues()
 		}
-		
 	}else if (gameType == "createPrivate"){
+
+		//socket.id = getRandomInt(1, 1000);
+
 		var privateGame = initStartValues()
 		var joinInfo = {
 			id: socket.id,
@@ -206,14 +242,15 @@ io.on('connection', function(socket){
 			roomType: "private",
 			gameValues: privateGame,
 		}
-		socket.emit("playersJoined", joinInfo)
+		socket.send(JSON.stringify({type: "playersJoined", data: joinInfo}));
 		
 		gameRooms[privateGame.roomId] = [joinInfo]
 		
-	}else if (gameType == "gameCode"){
+	} else if (gameType == "gameCode"){
+
 		var gameRoomId = Number(gameQuery.gameCode)
 		if (gameRooms[gameRoomId] == undefined){
-			socket.emit("gameNotExist", gameRoomId)
+			socket.send(JSON.stringify({type: "gameNotExist", data: gameRoomId}));
 		}else{
 			var gameValues = gameRooms[gameRoomId][0].gameValues
 			
@@ -230,56 +267,94 @@ io.on('connection', function(socket){
 						
 			gameRooms[gameRoomId].push(joinInfo)
 			
-			socket.emit("playersJoined", joinInfo)
+			socket.send(JSON.stringify({type: "playersJoined", data: joinInfo}));
+
+			wss.clients.forEach(client => {
+				if(client.id === gameRooms[gameRoomId][0].id) {
+					client.send(JSON.stringify({type: "gameStart"}));
+				} 
+				if(client.id === gameRooms[gameRoomId][1].id) {
+					client.send(JSON.stringify({type: "gameStart"}));
+				}
+			})
 			
-			io.to(gameRooms[gameRoomId][0].id).emit("gameStart")
-			io.to(gameRooms[gameRoomId][1].id).emit("gameStart")
 		}
 	}
-	
-	socket.on("winner", function(player){
-		var otherPlayer = getOtherPlayer(player)
-		
-		io.to(player.id).emit("winnerDetermined", {youWon: true, winningLetter: player.letter})
-		io.to(otherPlayer.id).emit("winnerDetermined", {youWon: false, winningLetter: player.letter})
-	})
-	
-	socket.on("tie", function(roomId){
-		io.to(gameRooms[roomId][0].id).emit("tie")
-		io.to(gameRooms[roomId][1].id).emit("tie")
-	})
-	
-	socket.on("playedMove", function(movePlayed){		
-		var otherPlayer = getOtherPlayer(movePlayed.player)
-		
-		var playerRoom = movePlayed.player.roomId
-				
-		info = {
-			boxPlayed: movePlayed.box,
-			letter: movePlayed.player.letter
-		}
-		io.to(otherPlayer.id).emit("yourTurn", info)
-		io.to(movePlayed.player.id).emit("otherTurn")
-	})
-	
+
 	playersRematch = 0
-	
-	socket.on("restartGame", function(roomId){
-		playersRematch ++
-		if (playersRematch == 2){
-			newPlayerData = randomizePlayerTurn(gameRooms[roomId])
-			io.to(gameRooms[roomId][0].id).emit("gameRestarted", newPlayerData[0])
-			io.to(gameRooms[roomId][1].id).emit("gameRestarted", newPlayerData[1])
-			playersRematch = 0
+
+	socket.addEventListener('message', (event) => {
+		const message = JSON.parse(event.data);
+
+		if (message.type === 'winner') {
+			const player = message.data;
+			var otherPlayer = getOtherPlayer(player)
+
+			wss.clients.forEach(client => { 
+				if(client.id === player.id) {
+					client.send(JSON.stringify({type: "winnerDetermined", data: {youWon: true, winningLetter: player.letter}}));
+				} 
+				if(client.id === otherPlayer.id) {
+					client.send(JSON.stringify({type: "winnerDetermined", data: {youWon: false, winningLetter: player.letter}}));
+				}
+			})
 		}
-	})
+
+		if (message.type === 'tie') {
+			const roomId = message.data;
+			wss.clients.forEach(client => {
+				if(client.id === gameRooms[roomId][0].id) {
+					client.send(JSON.stringify({type: "tie"}));
+				} 
+				if(client.id === gameRooms[roomId][1].id) {
+					client.send(JSON.stringify({type: "tie"}));
+				}
+			})
+		}
 	
-	//////////////
-	//DISCONNECT//
-	//////////////
-	socket.on('disconnect', function(){
-		//console.log("\nDisconnect")
+		if (message.type === 'playedMove') {
+			const movePlayed = message.data;
+			var otherPlayer = getOtherPlayer(movePlayed.player)
 		
+			var playerRoom = movePlayed.player.roomId
+				
+			info = {
+				boxPlayed: movePlayed.box,
+				letter: movePlayed.player.letter
+			}
+
+			wss.clients.forEach(client => { 
+				if(client.id === otherPlayer.id) {
+					client.send(JSON.stringify({type: "yourTurn", data: info}));
+				} 
+				if(client.id === movePlayed.player.id) {
+					client.send(JSON.stringify({type: "otherTurn"}));
+				}
+			})
+		}
+
+		if (message.type === 'restartGame') { 
+			const roomId = message.data;
+
+			playersRematch ++
+			if (playersRematch == 2){
+				newPlayerData = randomizePlayerTurn(gameRooms[roomId])
+
+				wss.clients.forEach(client => { 
+					if(client.id === gameRooms[roomId][0].id) {
+						client.send(JSON.stringify({type: "gameRestarted", data: newPlayerData[0]}));
+					} 
+					if(client.id === gameRooms[roomId][1].id) {
+						client.send(JSON.stringify({type: "gameRestarted", data: newPlayerData[1]}));
+					}
+				})
+				playersRematch = 0
+			}
+		}
+	});
+
+	socket.addEventListener('close', function() {
+		// Code to handle the disconnect event
 		removePlayerFromRoom(socket.id)
 				
 		//This means the player is alone as he does not have a room
@@ -293,25 +368,20 @@ io.on('connection', function(socket){
 				if (otherPlayerInfo != null){
 					var otherPlayer = getOtherPlayer(otherPlayerInfo)
 					if(otherPlayer){
-						io.to(otherPlayer.id).emit("playerDisconnect")
+						wss.clients.forEach(client => { 
+							if(client.id === otherPlayer.id) {
+								client.send(JSON.stringify({type: "playerDisconnect"}));
+							} 
+						})
 					}
 				}
 			}
 		}
-	})
-})
+	});
+	
+});
 
-//Server configuration stuff
-
-//Tries to find variable for openshift ip, if nothing then loads to localhost
-var ipaddress = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
-
-//Same as above, but with port
-//If you want to load on localhost onto a different port, change 4000 to whatever port you please
-var port = process.env.OPENSHIFT_NODEJS_PORT || 4000;
-
-http.listen(port, ipaddress, function(){
-	console.log('Running on Openshift Server')
-})
-
-
+const PORT = 3000;
+server.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});

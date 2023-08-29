@@ -1,5 +1,6 @@
+const ws = new WebSocket('ws://localhost:3000');
+
 //Initializes variables
-var socket = io();
 
 playerData = null;
 yourTurn = null;
@@ -125,20 +126,25 @@ function checkTurn(){
 //////////////////////////////////////////////////////
 //These functions deal with start of the game things//
 //////////////////////////////////////////////////////
-socket.on("connect", function(){
-	//Resets boxes to make sure none are already there when page loads
-	resetBoxes()
-	resetScoreboard()
-})
+//socket.on("connect", function(){
+//	//Resets boxes to make sure none are already there when page loads
+//	resetBoxes()
+//	resetScoreboard()
+//})
 
 //Gets player info and initializes turn, data and letter
-socket.on("playersJoined", function(joinInfo){
-	playerData = joinInfo
-	if (playerData.roomType == "private"){
-		document.getElementById("roomId").innerHTML = "Room Code: " + joinInfo.roomId
+
+ws.addEventListener("message", (event) => {
+	const message = JSON.parse(event.data);
+	if(message.type === "playersJoined") {
+		joinInfo = message.data;
+		playerData = joinInfo
+		if (playerData.roomType == "private"){
+			document.getElementById("roomId").innerHTML = "Room Code: " + joinInfo.roomId
+		}
+		document.getElementById("player").innerHTML = "Your Letter: " + joinInfo.letter
 	}
-	document.getElementById("player").innerHTML = "Your Letter: " + joinInfo.letter
-})
+});
 
 function removeSearchAction(){
 	document.getElementById("loadingContainer").remove()
@@ -166,9 +172,15 @@ function gameStart(){
 }
 
 //Runs once 2 people have joined
-socket.on("gameStart", function(){
-	gameStart()
-})
+
+ws.addEventListener('message', (event) => {
+	const message = JSON.parse(event.data);
+  
+	if (message.type === 'gameStart') {
+	  console.log('gameStart', message.data);
+	  gameStart();
+	} 
+});
 //////////////////////////////////////////////////////
 //////////////////////////////////////////////////////
 
@@ -185,29 +197,44 @@ function playerDisconnected(text){
 	canPlay = false
 }
 
-socket.on("gameNotExist", function(roomId){
-	document.getElementById("searchState").innerHTML = "Room " + roomId + " does not exist."
-})
+ws.addEventListener('message', (event) => {
+	const message = JSON.parse(event.data);
+  
+	if (message.type === 'gameNotExist') {
+		const roomId = message.data;
+		document.getElementById("searchState").innerHTML = "Room " + roomId + " does not exist."
+	} 
+});
 
-//Runs when other player disconnected
-socket.on("playerDisconnect", function(){
-	playerDisconnected("Opponent Disconnected")
-})
+
+////Runs when other player disconnected
+ws.addEventListener('message', (event) => {
+	const message = JSON.parse(event.data);
+  
+	if (message.type === 'playerDisconnect') {
+		playerDisconnected("Opponent Disconnected");
+	} 
+});
 
 function restartGame(){
 	document.getElementById("rematchButton").remove()
 	sandwichWithSpinners("gameState", " Waiting for Opponent ")
 
 	var roomId = playerData.roomId
-	socket.emit("restartGame", roomId)
+	ws.send(JSON.stringify({type: "restartGame", data: roomId}));
 }
 
-socket.on("gameRestarted", function(newPlayerData){
-	playerData = newPlayerData
-	resetBoxes()
-	canPlay = true
-	gameStart()
-})
+
+ws.addEventListener('message', (event) => {
+	const message = JSON.parse(event.data);
+  
+	if (message.type === 'gameRestarted') {
+	  	playerData = message.data;
+	  	resetBoxes()
+	  	canPlay = true
+	  	gameStart()
+	}
+});
 
 //Updates the scoreboard based on what letter is entered
 function addLetterToScoreboard(letter){
@@ -223,17 +250,23 @@ function endGameInit(){
 	canPlay = false
 }
 
-socket.on("winnerDetermined", function(winner){
-	if (winner.youWon){
-		document.getElementById("gameState").innerHTML = "You Won!"
-	}else{
-		document.getElementById("gameState").innerHTML = "You Lost..."
-	}
-	
-	addLetterToScoreboard(winner.winningLetter)
-	
-	endGameInit()
-})
+ws.addEventListener('message', (event) => {
+	const message = JSON.parse(event.data);
+  
+	if (message.type === 'winnerDetermined') {
+		const winner = message.data;
+		if (winner.youWon){
+			document.getElementById("gameState").innerHTML = "You Won!"
+		}else{
+			document.getElementById("gameState").innerHTML = "You Lost..."
+		}
+		
+		addLetterToScoreboard(winner.winningLetter)
+		
+		endGameInit()
+		
+	} 
+});
 
 //Changes class of box based on the letter that is in it
 function addClassByLetter(boxId, letter){
@@ -244,35 +277,49 @@ function addClassByLetter(boxId, letter){
 	}
 }
 
-socket.on("tie", function(){
-	document.getElementById("gameState").innerHTML = "You tied"
-	endGameInit()
-	addLetterToScoreboard("tie")
-})
+ws.addEventListener('message', (event) => {
+	const message = JSON.parse(event.data);
+  
+	if (message.type === 'tie') {
+		document.getElementById("gameState").innerHTML = "You tied"
+		endGameInit()
+		addLetterToScoreboard("tie")
+	} 
+});
+
 
 //Switches turns and checks for winner
-socket.on("otherTurn", function(){
-	if (checkWinner()){
-		socket.emit("winner", playerData)
-	}else{
-		if (checkTie()){
-			socket.emit("tie", playerData.roomId)
+ws.addEventListener('message', (event) => {
+	const message = JSON.parse(event.data);
+  
+	if (message.type === 'otherTurn') {
+		if (checkWinner()){
+			ws.send(JSON.stringify({type: "winner", data: playerData}));
 		}else{
-			yourTurn = false
-			checkTurn()
+			if (checkTie()){
+				ws.send(JSON.stringify({type: "tie", data: playerData.roomId}));
+			}else{
+				yourTurn = false
+				checkTurn()
+			}
 		}
 	}
-})
+});
 
-//Switches turn to yours and also updates the board after last move
-socket.on("yourTurn", function(info){
-	document.getElementById(info.boxPlayed).innerHTML = info.letter
+////Switches turn to yours and also updates the board after last move
+ws.addEventListener('message', (event) => {
+	const message = JSON.parse(event.data);
+	const info = message.data;
+  
+	if (message.type === 'yourTurn') {
+		document.getElementById(info.boxPlayed).innerHTML = info.letter
 	
-	addClassByLetter(info.boxPlayed, info.letter)
-	
-	yourTurn = true
-	checkTurn()
-})
+		addClassByLetter(info.boxPlayed, info.letter)
+		
+		yourTurn = true
+		checkTurn()
+	} 
+});
 
 //This compares any amount of arguments you inputs
 function areEqual(){
@@ -375,7 +422,7 @@ function boxClick(box){
 					box: box.id
 				}
 				
-				socket.emit("playedMove", movePlayed)
+				ws.send(JSON.stringify({type: "playedMove", data: movePlayed}));
 			}
 		}
 	}

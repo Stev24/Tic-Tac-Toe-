@@ -53,7 +53,7 @@
 					<td class = "score" id = "OScore">0</td>
 				</tr>
 			</table>
-			<form action = "/">
+			<form action = "/" method="POST">
 				<button class = "menuBtn btn btn-info" type = "submit">
 					Menu
 				</button>
@@ -65,7 +65,7 @@
 					<div id = "roomId"></div>
 						<div id = "searchState">Searching for Opponent</div>
 				</div>
-				<form action = "/">
+				<form action = "/" method="POST">
 					<div class = "menuBtnContainer">
 						<button class = "menuBtn loadingMenuBtn btn btn-info" type = "submit">
 							Menu
@@ -75,7 +75,6 @@
 			</div>
 		</div>
 		<script src = "/js/fastclick.js"></script>
-        <script src="/socket.io/socket.io.js"></script>
         <script src = "/js/loading.js"></script>
         <script src = "/js/game.js"></script>
     </body>
