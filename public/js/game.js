@@ -177,7 +177,6 @@ ws.addEventListener('message', (event) => {
 	const message = JSON.parse(event.data);
   
 	if (message.type === 'gameStart') {
-	  console.log('gameStart', message.data);
 	  gameStart();
 	} 
 });
