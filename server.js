@@ -1,261 +1,255 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const WebSocket = require('ws');
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const WebSocket = require("ws");
 
 const server = http.createServer();
 
-const publicPath = path.join(__dirname, 'public');
+const publicPath = path.join(__dirname, "public");
 
 var gameType;
-function getGameType(gameQuery){
-	for (key in gameQuery){
-		gameType = key.toString()
+function getGameType(gameQuery) {
+	for (key in gameQuery) {
+		gameType = key.toString();
 	}
 }
 
 var gameQuery;
 
-server.on('request', (req, res) => {
-    const url = req.url;
-    if (url.startsWith('/join')) {
-        const joinPath = path.join(__dirname, 'views', 'join.html');
-        fs.readFile(joinPath, 'utf-8', (err, data) => {
-            if (err) {
-                res.writeHead(500);
-                res.end('Internal Server Error');
-            } else {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(data);
-            }
-        });
-    } else if (url.startsWith('/game')) {
-        gameQuery = require('url').parse(url, true).query;
-        getGameType(gameQuery);
-        const gamePath = path.join(__dirname, 'views', 'game.html');
-        fs.readFile(gamePath, 'utf-8', (err, data) => {
-            if (err) {
-                res.writeHead(500);
-                res.end('Internal Server Error');
-            } else {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(data);
-            }
-        });
-    } else if (url === '/') {
-        const indexPath = path.join(__dirname, 'views', 'index.html');
-        fs.readFile(indexPath, 'utf-8', (err, data) => {
-            if (err) {
-                res.writeHead(500);
-                res.end('Internal Server Error');
-            } else {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(data);
-            }
-        });
-    } else {
-        const filePath = path.join(publicPath, url);
-        fs.readFile(filePath, (err, data) => {
-            if (err) {
-                res.writeHead(404);
-                res.end('Not Found');
-            } else {
-                const contentType = getContentType(filePath);
-                res.writeHead(200, { 'Content-Type': contentType });
-                res.end(data);
-            }
-        });
-    }
+server.on("request", (req, res) => {
+	const url = req.url;
+	if (url.startsWith("/join")) {
+		const joinPath = path.join(__dirname, "views", "join.html");
+		fs.readFile(joinPath, "utf-8", (err, data) => {
+			if (err) {
+				res.writeHead(500);
+				res.end("Internal Server Error");
+			} else {
+				res.writeHead(200, { "Content-Type": "text/html" });
+				res.end(data);
+			}
+		});
+	} else if (url.startsWith("/game")) {
+		gameQuery = require("url").parse(url, true).query;
+		getGameType(gameQuery);
+		const gamePath = path.join(__dirname, "views", "game.html");
+		fs.readFile(gamePath, "utf-8", (err, data) => {
+			if (err) {
+				res.writeHead(500);
+				res.end("Internal Server Error");
+			} else {
+				res.writeHead(200, { "Content-Type": "text/html" });
+				res.end(data);
+			}
+		});
+	} else if (url === "/") {
+		const indexPath = path.join(__dirname, "views", "index.html");
+		fs.readFile(indexPath, "utf-8", (err, data) => {
+			if (err) {
+				res.writeHead(500);
+				res.end("Internal Server Error");
+			} else {
+				res.writeHead(200, { "Content-Type": "text/html" });
+				res.end(data);
+			}
+		});
+	} else {
+		const filePath = path.join(publicPath, url);
+		fs.readFile(filePath, (err, data) => {
+			if (err) {
+				res.writeHead(404);
+				res.end("Not Found");
+			} else {
+				const contentType = getContentType(filePath);
+				res.writeHead(200, { "Content-Type": contentType });
+				res.end(data);
+			}
+		});
+	}
 });
 
 function getContentType(filePath) {
-    const extname = path.extname(filePath);
-    switch (extname) {
-        case '.js':
-            return 'text/javascript';
-        case '.css':
-            return 'text/css';
-        case '.html':
-            return 'text/html';
-        default:
-            return 'application/octet-stream';
-    }
+	const extname = path.extname(filePath);
+	switch (extname) {
+		case ".js":
+			return "text/javascript";
+		case ".css":
+			return "text/css";
+		case ".html":
+			return "text/html";
+		default:
+			return "application/octet-stream";
+	}
 }
 
-function getRandomInt(min, max){
+function getRandomInt(min, max) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 //This sets the combination of what letter each player will get
-function assignLetter(){
-	number = getRandomInt(0, 1)
-	if (number == 0){
-		players = ["X", "O"]
-	}else if (number == 1){
-		players = ["O", "X"]
+function assignLetter() {
+	number = getRandomInt(0, 1);
+	if (number == 0) {
+		players = ["X", "O"];
+	} else if (number == 1) {
+		players = ["O", "X"];
 	}
-	return players
+	return players;
 }
 
 //This sets the combination of who will start the game
-function assignTurn(){
-	number = getRandomInt(0, 1)
-	if (number == 0){
-		turn = [true, false]
-	}else if (number == 1){
-		turn = [false, true]
+function assignTurn() {
+	number = getRandomInt(0, 1);
+	if (number == 0) {
+		turn = [true, false];
+	} else if (number == 1) {
+		turn = [false, true];
 	}
-	return turn
+	return turn;
 }
 
 //This is when you don't have the playerData and you only have the player Id.
 //This returns the whole player data when only the playerId is available
-function findOtherPlayer(playerId){
-	for (var room in gameRooms){
-		for (var i = 0; i < gameRooms[room].length; i++){
-			gameRooms[room][i].id
-			if (playerId == gameRooms[room][i].id){
-				return gameRooms[room][i]
+function findOtherPlayer(playerId) {
+	for (var room in gameRooms) {
+		for (var i = 0; i < gameRooms[room].length; i++) {
+			gameRooms[room][i].id;
+			if (playerId == gameRooms[room][i].id) {
+				return gameRooms[room][i];
 			}
 		}
 	}
 }
 
 //This is when you have the playerData
-function getOtherPlayer(player){
-	var playerData = gameRooms[player.roomId]
-	
+function getOtherPlayer(player) {
+	var playerData = gameRooms[player.roomId];
+
 	var otherPlayer;
-	
-	if (playerData[0].playerNumber == player.playerNumber){
-		otherPlayer = playerData[1]
-	}else if (playerData[1].playerNumber == player.playerNumber){
-		otherPlayer = playerData[0]
+
+	if (playerData[0].playerNumber == player.playerNumber) {
+		otherPlayer = playerData[1];
+	} else if (playerData[1].playerNumber == player.playerNumber) {
+		otherPlayer = playerData[0];
 	}
-	
-	return otherPlayer
+
+	return otherPlayer;
 }
 
-function findPlayerRoom(playerId){
-	for (var room in gameRooms){
-		for (var i = 0; i < gameRooms[room].length; i++){
-			gameRooms[room][i].id
-			if (playerId == gameRooms[room][i].id){
-				return room
+function findPlayerRoom(playerId) {
+	for (var room in gameRooms) {
+		for (var i = 0; i < gameRooms[room].length; i++) {
+			gameRooms[room][i].id;
+			if (playerId == gameRooms[room][i].id) {
+				return room;
 			}
 		}
 	}
-	
+
 	//This means the player does not have a room
-	return false
+	return false;
 }
 
 //This is used to switch who starts the game at every new game
-function randomizePlayerTurn(playerData){
-	turn = assignTurn()
-	
-	playerData[0].turn = turn[0]
-	playerData[1].turn = turn[1]
-	
-	return playerData
+function randomizePlayerTurn(playerData) {
+	turn = assignTurn();
+
+	playerData[0].turn = turn[0];
+	playerData[1].turn = turn[1];
+
+	return playerData;
 }
 
-function getRoomId(){
-	return getRandomInt(1, 10000)
+function getRoomId() {
+	return getRandomInt(1, 10000);
 }
 
-function initStartValues(){
-	letters = assignLetter()
-	turn = assignTurn()
-	playerData = []
-	usersOn = 1
-	roomId = getRoomId()
-	
+function initStartValues() {
+	letters = assignLetter();
+	turn = assignTurn();
+	playerData = [];
+	usersOn = 1;
+	roomId = getRoomId();
+
 	valueList = {
 		letters: letters,
 		turn: turn,
 		playerData: playerData,
 		usersOn: usersOn,
 		roomId: roomId,
-	}
-	
-	return valueList
-	
+	};
+
+	return valueList;
 }
 
-function removePlayerFromRoom(playerId){
-	for (var i = 0; i < playerData.length; i++){
-		if (playerId == playerData[i].id){
-			playerData.splice(i, 1)
-			return
+function removePlayerFromRoom(playerId) {
+	for (var i = 0; i < playerData.length; i++) {
+		if (playerId == playerData[i].id) {
+			playerData.splice(i, 1);
+			return;
 		}
 	}
 }
 
-randomGame = initStartValues()
+randomGame = initStartValues();
 
-gameRooms = {}
-
-
+gameRooms = {};
 
 const wss = new WebSocket.Server({ server });
 
-wss.on('connection', function(socket) {
+wss.on("connection", function (socket) {
 	socket.id = getRandomInt(1, 1000);
-	if (gameType == "random"){
-		
+	if (gameType == "random") {
 		var joinInfo = {
 			id: socket.id,
 			roomId: randomGame.roomId,
 			playerNumber: randomGame.usersOn,
-			letter: randomGame.letters[(randomGame.usersOn - 1)],
+			letter: randomGame.letters[randomGame.usersOn - 1],
 			turn: randomGame.turn[randomGame.usersOn - 1],
 			roomType: "random",
-		}
-				
-		randomGame.playerData.push(joinInfo)
-		
-		randomGame.usersOn++
-		
-		socket.send(JSON.stringify({type: "playersJoined", data: joinInfo}));
+		};
 
-		
-		if (randomGame.usersOn > 2){
+		randomGame.playerData.push(joinInfo);
+
+		randomGame.usersOn++;
+
+		socket.send(JSON.stringify({ type: "playersJoined", data: joinInfo }));
+
+		if (randomGame.usersOn > 2) {
 			gameRooms[randomGame.roomId] = randomGame.playerData;
 			wss.clients.forEach(function (client) {
-				client.send(JSON.stringify({type: "gameStart"}));
+				client.send(JSON.stringify({ type: "gameStart" }));
 			});
-			sockets.forEach(function(sock) {
-				sock.write(JSON.stringify({type: "gameStart"}));
+			sockets.forEach(function (sock) {
+				sock.write(JSON.stringify({ type: "gameStart" }));
 			});
-			randomGame = initStartValues()
+			randomGame = initStartValues();
 		}
-	}else if (gameType == "createPrivate"){
-
-		var privateGame = initStartValues()
+	} else if (gameType == "createPrivate") {
+		var privateGame = initStartValues();
 		var joinInfo = {
 			id: socket.id,
 			roomId: privateGame.roomId,
 			playerNumber: privateGame.usersOn,
-			letter: privateGame.letters[(privateGame.usersOn - 1)],
+			letter: privateGame.letters[privateGame.usersOn - 1],
 			turn: privateGame.turn[privateGame.usersOn - 1],
 			roomType: "private",
 			gameValues: privateGame,
-		}
-		socket.send(JSON.stringify({type: "playersJoined", data: joinInfo}));
-		
-		gameRooms[privateGame.roomId] = [joinInfo]
-		
-	} else if (gameType == "gameCode"){
+		};
+		socket.send(JSON.stringify({ type: "playersJoined", data: joinInfo }));
 
-		var gameRoomId = Number(gameQuery.gameCode)
-		if (gameRooms[gameRoomId] == undefined){
-			socket.send(JSON.stringify({type: "gameNotExist", data: gameRoomId}));
-		}else{
-			var gameValues = gameRooms[gameRoomId][0].gameValues
-			
-			gameValues.usersOn ++
-			
+		gameRooms[privateGame.roomId] = [joinInfo];
+	} else if (gameType == "gameCode") {
+		var gameRoomId = Number(gameQuery.gameCode);
+		if (gameRooms[gameRoomId] == undefined) {
+			socket.send(
+				JSON.stringify({ type: "gameNotExist", data: gameRoomId })
+			);
+		} else {
+			var gameValues = gameRooms[gameRoomId][0].gameValues;
+
+			gameValues.usersOn++;
+
 			var joinInfo = {
 				id: socket.id,
 				roomId: gameValues.roomId,
@@ -263,271 +257,330 @@ wss.on('connection', function(socket) {
 				letter: gameValues.letters[gameValues.usersOn - 1],
 				turn: gameValues.turn[gameValues.usersOn - 1],
 				roomType: "private",
-			}
-						
-			gameRooms[gameRoomId].push(joinInfo)
-			
-			socket.send(JSON.stringify({type: "playersJoined", data: joinInfo}));
+			};
 
-			wss.clients.forEach(client => {
-				if(client.id === gameRooms[gameRoomId][0].id) {
-					client.send(JSON.stringify({type: "gameStart"}));
-				} 
-				if(client.id === gameRooms[gameRoomId][1].id) {
-					client.send(JSON.stringify({type: "gameStart"}));
-				}
-			})
+			gameRooms[gameRoomId].push(joinInfo);
 
-			sockets.forEach(sock => {
-				if(sock.id === gameRooms[gameRoomId][0].id) {
-					sock.write(JSON.stringify({type: "gameStart"}));
-				} 
-				if(sock.id === gameRooms[gameRoomId][1].id) {
-					sock.write(JSON.stringify({type: "gameStart"}));
+			socket.send(
+				JSON.stringify({ type: "playersJoined", data: joinInfo })
+			);
+
+			wss.clients.forEach((client) => {
+				if (client.id === gameRooms[gameRoomId][0].id) {
+					client.send(JSON.stringify({ type: "gameStart" }));
 				}
-			})
-			
+				if (client.id === gameRooms[gameRoomId][1].id) {
+					client.send(JSON.stringify({ type: "gameStart" }));
+				}
+			});
+
+			sockets.forEach((sock) => {
+				if (sock.id === gameRooms[gameRoomId][0].id) {
+					sock.write(JSON.stringify({ type: "gameStart" }));
+				}
+				if (sock.id === gameRooms[gameRoomId][1].id) {
+					sock.write(JSON.stringify({ type: "gameStart" }));
+				}
+			});
 		}
 	}
 
-	playersRematch = 0
+	playersRematch = 0;
 
-	socket.addEventListener('message', (event) => {
+	socket.addEventListener("message", (event) => {
 		const message = JSON.parse(event.data);
 
-		if (message.type === 'winner') {
+		if (message.type === "winner") {
 			const player = message.data;
-			var otherPlayer = getOtherPlayer(player)
+			var otherPlayer = getOtherPlayer(player);
 
-			wss.clients.forEach(client => { 
-				if(client.id === player.id) {
-					client.send(JSON.stringify({type: "winnerDetermined", data: {youWon: true, winningLetter: player.letter}}));
-				} 
-				if(client.id === otherPlayer.id) {
-					client.send(JSON.stringify({type: "winnerDetermined", data: {youWon: false, winningLetter: player.letter}}));
+			wss.clients.forEach((client) => {
+				if (client.id === player.id) {
+					client.send(
+						JSON.stringify({
+							type: "winnerDetermined",
+							data: {
+								youWon: true,
+								winningLetter: player.letter,
+							},
+						})
+					);
 				}
-			})
+				if (client.id === otherPlayer.id) {
+					client.send(
+						JSON.stringify({
+							type: "winnerDetermined",
+							data: {
+								youWon: false,
+								winningLetter: player.letter,
+							},
+						})
+					);
+				}
+			});
 
 			// TCP
-			sockets.forEach(function(sock) { 
-				if(sock.id === player.id) {
-					sock.write(JSON.stringify({type: "winnerDetermined", data: {youWon: true, winningLetter: player.letter}}));
-				} 
-				if(sock.id === otherPlayer.id) {
-					sock.write(JSON.stringify({type: "winnerDetermined", data: {youWon: false, winningLetter: player.letter}}));
+			sockets.forEach(function (sock) {
+				if (sock.id === player.id) {
+					sock.write(
+						JSON.stringify({
+							type: "winnerDetermined",
+							data: {
+								youWon: true,
+								winningLetter: player.letter,
+							},
+						})
+					);
 				}
-			})
+				if (sock.id === otherPlayer.id) {
+					sock.write(
+						JSON.stringify({
+							type: "winnerDetermined",
+							data: {
+								youWon: false,
+								winningLetter: player.letter,
+							},
+						})
+					);
+				}
+			});
 		}
 
-		if (message.type === 'tie') {
+		if (message.type === "tie") {
 			const roomId = message.data;
-			wss.clients.forEach(client => {
-				if(client.id === gameRooms[roomId][0].id) {
-					client.send(JSON.stringify({type: "tie"}));
-				} 
-				if(client.id === gameRooms[roomId][1].id) {
-					client.send(JSON.stringify({type: "tie"}));
+			wss.clients.forEach((client) => {
+				if (client.id === gameRooms[roomId][0].id) {
+					client.send(JSON.stringify({ type: "tie" }));
 				}
-			})
+				if (client.id === gameRooms[roomId][1].id) {
+					client.send(JSON.stringify({ type: "tie" }));
+				}
+			});
 
-			sockets.forEach(function(sock) {
-				if(sock.id === gameRooms[roomId][0].id) {
-					sock.write(JSON.stringify({type: "tie"}));
-				} 
-				if(sock.id === gameRooms[roomId][1].id) {
-					sock.write(JSON.stringify({type: "tie"}));
+			sockets.forEach(function (sock) {
+				if (sock.id === gameRooms[roomId][0].id) {
+					sock.write(JSON.stringify({ type: "tie" }));
 				}
-			})
+				if (sock.id === gameRooms[roomId][1].id) {
+					sock.write(JSON.stringify({ type: "tie" }));
+				}
+			});
 		}
-	
-		if (message.type === 'playedMove') {
+
+		if (message.type === "playedMove") {
 			console.log("playedMove", message.data);
 			const movePlayed = message.data;
-			var otherPlayer = getOtherPlayer(movePlayed.player)
-		
-			var playerRoom = movePlayed.player.roomId
-				
+			var otherPlayer = getOtherPlayer(movePlayed.player);
+
+			var playerRoom = movePlayed.player.roomId;
+
 			info = {
 				boxPlayed: movePlayed.box,
-				letter: movePlayed.player.letter
-			}
+				letter: movePlayed.player.letter,
+			};
 
-			wss.clients.forEach(client => { 
-				if(client.id === otherPlayer.id) {
-					client.send(JSON.stringify({type: "yourTurn", data: info}));
-				} 
-				if(client.id === movePlayed.player.id) {
-					client.send(JSON.stringify({type: "otherTurn"}));
+			wss.clients.forEach((client) => {
+				if (client.id === otherPlayer.id) {
+					client.send(
+						JSON.stringify({ type: "yourTurn", data: info })
+					);
 				}
-			})
+				if (client.id === movePlayed.player.id) {
+					client.send(JSON.stringify({ type: "otherTurn" }));
+				}
+			});
 
-			/// TCP 
-			sockets.forEach(function(sock) {
-				if(sock.id === otherPlayer.id) {
-					sock.write(JSON.stringify({type: "yourTurn", data: info}));
-				} 
-				if(sock.id === movePlayed.player.id) {
-					sock.write(JSON.stringify({type: "otherTurn"}));
+			/// TCP
+			sockets.forEach(function (sock) {
+				if (sock.id === otherPlayer.id) {
+					sock.write(
+						JSON.stringify({ type: "yourTurn", data: info })
+					);
+				}
+				if (sock.id === movePlayed.player.id) {
+					sock.write(JSON.stringify({ type: "otherTurn" }));
 				}
 				//sock.write(JSON.stringify({type: "gameStart"}));
 			});
 		}
 
-		if (message.type === 'restartGame') { 
+		if (message.type === "restartGame") {
 			const roomId = message.data;
 
-			playersRematch ++
-			if (playersRematch == 2){
-				newPlayerData = randomizePlayerTurn(gameRooms[roomId])
+			playersRematch++;
+			if (playersRematch == 2) {
+				newPlayerData = randomizePlayerTurn(gameRooms[roomId]);
 
-				wss.clients.forEach(client => { 
-					if(client.id === gameRooms[roomId][0].id) {
-						client.send(JSON.stringify({type: "gameRestarted", data: newPlayerData[0]}));
-					} 
-					if(client.id === gameRooms[roomId][1].id) {
-						client.send(JSON.stringify({type: "gameRestarted", data: newPlayerData[1]}));
+				wss.clients.forEach((client) => {
+					if (client.id === gameRooms[roomId][0].id) {
+						client.send(
+							JSON.stringify({
+								type: "gameRestarted",
+								data: newPlayerData[0],
+							})
+						);
 					}
-				})
+					if (client.id === gameRooms[roomId][1].id) {
+						client.send(
+							JSON.stringify({
+								type: "gameRestarted",
+								data: newPlayerData[1],
+							})
+						);
+					}
+				});
 
 				//TCP
-				sockets.forEach(sock => { 
-					if(sock.id === gameRooms[roomId][0].id) {
-						sock.write(JSON.stringify({type: "gameRestarted", data: newPlayerData[0]}));
-					} 
-					if(sock.id === gameRooms[roomId][1].id) {
-						sock.write(JSON.stringify({type: "gameRestarted", data: newPlayerData[1]}));
+				sockets.forEach((sock) => {
+					if (sock.id === gameRooms[roomId][0].id) {
+						sock.write(
+							JSON.stringify({
+								type: "gameRestarted",
+								data: newPlayerData[0],
+							})
+						);
 					}
-				})
+					if (sock.id === gameRooms[roomId][1].id) {
+						sock.write(
+							JSON.stringify({
+								type: "gameRestarted",
+								data: newPlayerData[1],
+							})
+						);
+					}
+				});
 
-				playersRematch = 0
+				playersRematch = 0;
 			}
 		}
 	});
 
-	socket.addEventListener('close', function() {
+	socket.addEventListener("close", function () {
 		// Code to handle the disconnect event
-		removePlayerFromRoom(socket.id)
-				
+		removePlayerFromRoom(socket.id);
+
 		//This means the player is alone as he does not have a room
-		if (!findPlayerRoom(socket.id)){
-			randomGame = initStartValues()
-		}else if (!(gameRooms[findPlayerRoom(socket.id)] == undefined)){ 
-			if (!(gameRooms[findPlayerRoom(socket.id)].length == 1)){
-				
-				var otherPlayerInfo = findOtherPlayer(socket.id)
-								
-				if (otherPlayerInfo != null){
-					var otherPlayer = getOtherPlayer(otherPlayerInfo)
-					if(otherPlayer){
-						wss.clients.forEach(client => { 
-							if(client.id === otherPlayer.id) {
-								client.send(JSON.stringify({type: "playerDisconnect"}));
-							} 
-						})
-						// TCP
-						sockets.forEach(sock => { 
-							if(sock.id === otherPlayer.id) {
-								sock.write(JSON.stringify({type: "playerDisconnect"}));
+		if (!findPlayerRoom(socket.id)) {
+			randomGame = initStartValues();
+		} else if (!(gameRooms[findPlayerRoom(socket.id)] == undefined)) {
+			if (!(gameRooms[findPlayerRoom(socket.id)].length == 1)) {
+				var otherPlayerInfo = findOtherPlayer(socket.id);
+
+				if (otherPlayerInfo != null) {
+					var otherPlayer = getOtherPlayer(otherPlayerInfo);
+					if (otherPlayer) {
+						wss.clients.forEach((client) => {
+							if (client.id === otherPlayer.id) {
+								client.send(
+									JSON.stringify({ type: "playerDisconnect" })
+								);
 							}
-						})
+						});
+						// TCP
+						sockets.forEach((sock) => {
+							if (sock.id === otherPlayer.id) {
+								sock.write(
+									JSON.stringify({ type: "playerDisconnect" })
+								);
+							}
+						});
 					}
 				}
 			}
 		}
 	});
-	
 });
 
 const PORT = 3000;
 server.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
+	console.log(`Server is listening on port ${PORT}`);
 });
 
 /// TCP Server
 
-const net = require('net');
+const net = require("net");
 const port = 7070;
-const host = '127.0.0.1';
+const host = "127.0.0.1";
 
 const serverTCP = net.createServer();
 serverTCP.listen(port, host, () => {
-    console.log('TCP Server is running on port ' + port + '.');
+	console.log("TCP Server is running on port " + port + ".");
 });
 
 let sockets = [];
 
-serverTCP.on('connection', function(sock) {
+serverTCP.on("connection", function (sock) {
 	sock.id = getRandomInt(1, 1000);
-    console.log('CONNECTED: ' + sock.remoteAddress + ':' + sock.remotePort);
-    sockets.push(sock);
+	console.log("CONNECTED: " + sock.remoteAddress + ":" + sock.remotePort);
+	sockets.push(sock);
 
-	playersRematch = 0
+	playersRematch = 0;
 
-    sock.on('data', function(data) {
+	sock.on("data", function (data) {
+		if (data == "random") {
+			console.log("random Oponent Game");
 
-		if (data == "random"){
-		
-			console.log('random Oponent Game');
-	
 			var joinInfo = {
 				id: sock.id,
 				roomId: randomGame.roomId,
 				playerNumber: randomGame.usersOn,
-				letter: randomGame.letters[(randomGame.usersOn - 1)],
+				letter: randomGame.letters[randomGame.usersOn - 1],
 				turn: randomGame.turn[randomGame.usersOn - 1],
 				roomType: "random",
-			}
-					
-			randomGame.playerData.push(joinInfo)
-			
-			randomGame.usersOn++
-			
-			sock.write(JSON.stringify({type: "playersJoined", data: joinInfo}))
-	
-			
-			if (randomGame.usersOn > 2){
+			};
+
+			randomGame.playerData.push(joinInfo);
+
+			randomGame.usersOn++;
+
+			sock.write(
+				JSON.stringify({ type: "playersJoined", data: joinInfo })
+			);
+
+			if (randomGame.usersOn > 2) {
 				gameRooms[randomGame.roomId] = randomGame.playerData;
 
-				sockets.forEach(function(sock) {
-            		sock.write(JSON.stringify({type: "gameStart"}));
-        		});
-
-				wss.clients.forEach(function (client) {
-					client.send(JSON.stringify({type: "gameStart"}));
+				sockets.forEach(function (sock) {
+					sock.write(JSON.stringify({ type: "gameStart" }));
 				});
 
-				randomGame = initStartValues()
-			}
-		} else if (data == "createPrivate"){
+				wss.clients.forEach(function (client) {
+					client.send(JSON.stringify({ type: "gameStart" }));
+				});
 
-			var privateGame = initStartValues()
+				randomGame = initStartValues();
+			}
+		} else if (data == "createPrivate") {
+			var privateGame = initStartValues();
 			var joinInfo = {
 				id: sock.id,
 				roomId: privateGame.roomId,
 				playerNumber: privateGame.usersOn,
-				letter: privateGame.letters[(privateGame.usersOn - 1)],
+				letter: privateGame.letters[privateGame.usersOn - 1],
 				turn: privateGame.turn[privateGame.usersOn - 1],
 				roomType: "private",
 				gameValues: privateGame,
-			}
-			sock.write(JSON.stringify({type: "playersJoined", data: joinInfo}));
-			
-			gameRooms[privateGame.roomId] = [joinInfo]
-			
-		} else if (data.toString().match("gameCode")){
-			
-			const arrInfo = data.toString().split('-');
+			};
+			sock.write(
+				JSON.stringify({ type: "playersJoined", data: joinInfo })
+			);
+
+			gameRooms[privateGame.roomId] = [joinInfo];
+		} else if (data.toString().match("gameCode")) {
+			const arrInfo = data.toString().split("-");
 			var gameRoomId = Number(arrInfo[1]);
-			
+
 			console.log(gameRoomId);
 
-			if (gameRooms[gameRoomId] == undefined){
-				sock.write(JSON.stringify({type: "gameNotExist", data: gameRoomId}));
-			}else{
-				var gameValues = gameRooms[gameRoomId][0].gameValues
-				
-				gameValues.usersOn ++
-				
+			if (gameRooms[gameRoomId] == undefined) {
+				sock.write(
+					JSON.stringify({ type: "gameNotExist", data: gameRoomId })
+				);
+			} else {
+				var gameValues = gameRooms[gameRoomId][0].gameValues;
+
+				gameValues.usersOn++;
+
 				var joinInfo = {
 					id: sock.id,
 					roomId: gameValues.roomId,
@@ -535,190 +588,252 @@ serverTCP.on('connection', function(sock) {
 					letter: gameValues.letters[gameValues.usersOn - 1],
 					turn: gameValues.turn[gameValues.usersOn - 1],
 					roomType: "private",
-				}
-							
-				gameRooms[gameRoomId].push(joinInfo)
-				
-				sock.write(JSON.stringify({type: "playersJoined", data: joinInfo}));
+				};
 
-				sockets.forEach(sock => {
-					if(sock.id === gameRooms[gameRoomId][0].id) {
-						sock.write(JSON.stringify({type: "gameStart"}));
-					} 
-					if(sock.id === gameRooms[gameRoomId][1].id) {
-						sock.write(JSON.stringify({type: "gameStart"}));
-					}
-				})
-	
-				wss.clients.forEach(client => {
-					if(client.id === gameRooms[gameRoomId][0].id) {
-						client.send(JSON.stringify({type: "gameStart"}));
-					} 
-					if(client.id === gameRooms[gameRoomId][1].id) {
-						client.send(JSON.stringify({type: "gameStart"}));
-					}
-				})
-			}
-		}
+				gameRooms[gameRoomId].push(joinInfo);
 
-		if(isJsonString(data)) {
-			message = JSON.parse(data);
+				sock.write(
+					JSON.stringify({ type: "playersJoined", data: joinInfo })
+				);
 
-			if (message.type === 'winner') {
-				const player = message.data;
-				var otherPlayer = getOtherPlayer(player)
-	
-				sockets.forEach(function(sock) { 
-					if(sock.id === player.id) {
-						sock.write(JSON.stringify({type: "winnerDetermined", data: {youWon: true, winningLetter: player.letter}}));
-					} 
-					if(sock.id === otherPlayer.id) {
-						sock.write(JSON.stringify({type: "winnerDetermined", data: {youWon: false, winningLetter: player.letter}}));
+				sockets.forEach((sock) => {
+					if (sock.id === gameRooms[gameRoomId][0].id) {
+						sock.write(JSON.stringify({ type: "gameStart" }));
 					}
-				})
-
-				//send to WEB client with websockets
-				wss.clients.forEach(client => { 
-					if(client.id === player.id) {
-						client.send(JSON.stringify({type: "winnerDetermined", data: {youWon: true, winningLetter: player.letter}}));
-					} 
-					if(client.id === otherPlayer.id) {
-						client.send(JSON.stringify({type: "winnerDetermined", data: {youWon: false, winningLetter: player.letter}}));
-					}
-				})
-			}
-	
-			if (message.type === 'tie') {
-				const roomId = message.data;
-				sockets.forEach(function(sock) {
-					if(sock.id === gameRooms[roomId][0].id) {
-						sock.write(JSON.stringify({type: "tie"}));
-					} 
-					if(sock.id === gameRooms[roomId][1].id) {
-						sock.write(JSON.stringify({type: "tie"}));
-					}
-				})
-
-				// web Client
-				wss.clients.forEach(client => {
-					if(client.id === gameRooms[roomId][0].id) {
-						client.send(JSON.stringify({type: "tie"}));
-					} 
-					if(client.id === gameRooms[roomId][1].id) {
-						client.send(JSON.stringify({type: "tie"}));
-					}
-				})
-			}
-
-			if(message.type === 'playedMove') {
-				console.log('playedMove')
-				console.log("playedMove", message.data);
-				const movePlayed = message.data;
-				var otherPlayer = getOtherPlayer(movePlayed.player)
-			
-				var playerRoom = movePlayed.player.roomId
-					
-				info = {
-					boxPlayed: movePlayed.box,
-					letter: movePlayed.player.letter
-				}
-	
-				/// TCP 
-				sockets.forEach(function(sock) {
-					if(sock.id === otherPlayer.id) {
-						sock.write(JSON.stringify({type: "yourTurn", data: info}));
-					} 
-					if(sock.id === movePlayed.player.id) {
-						sock.write(JSON.stringify({type: "otherTurn"}));
+					if (sock.id === gameRooms[gameRoomId][1].id) {
+						sock.write(JSON.stringify({ type: "gameStart" }));
 					}
 				});
-				wss.clients.forEach(client => { 
-					if(client.id === otherPlayer.id) {
-						client.send(JSON.stringify({type: "yourTurn", data: info}));
-					} 
-					if(client.id === movePlayed.player.id) {
-						client.send(JSON.stringify({type: "otherTurn"}));
+
+				wss.clients.forEach((client) => {
+					if (client.id === gameRooms[gameRoomId][0].id) {
+						client.send(JSON.stringify({ type: "gameStart" }));
 					}
-				})
+					if (client.id === gameRooms[gameRoomId][1].id) {
+						client.send(JSON.stringify({ type: "gameStart" }));
+					}
+				});
+			}
+		}
+
+		if (isJsonString(data)) {
+			message = JSON.parse(data);
+
+			if (message.type === "winner") {
+				const player = message.data;
+				var otherPlayer = getOtherPlayer(player);
+
+				sockets.forEach(function (sock) {
+					if (sock.id === player.id) {
+						sock.write(
+							JSON.stringify({
+								type: "winnerDetermined",
+								data: {
+									youWon: true,
+									winningLetter: player.letter,
+								},
+							})
+						);
+					}
+					if (sock.id === otherPlayer.id) {
+						sock.write(
+							JSON.stringify({
+								type: "winnerDetermined",
+								data: {
+									youWon: false,
+									winningLetter: player.letter,
+								},
+							})
+						);
+					}
+				});
+
+				//send to WEB client with websockets
+				wss.clients.forEach((client) => {
+					if (client.id === player.id) {
+						client.send(
+							JSON.stringify({
+								type: "winnerDetermined",
+								data: {
+									youWon: true,
+									winningLetter: player.letter,
+								},
+							})
+						);
+					}
+					if (client.id === otherPlayer.id) {
+						client.send(
+							JSON.stringify({
+								type: "winnerDetermined",
+								data: {
+									youWon: false,
+									winningLetter: player.letter,
+								},
+							})
+						);
+					}
+				});
 			}
 
-			if (message.type === 'restartGame') { 
+			if (message.type === "tie") {
 				const roomId = message.data;
-	
-				playersRematch ++
-				if (playersRematch == 2){
-					newPlayerData = randomizePlayerTurn(gameRooms[roomId])
-	
-					sockets.forEach(sock => { 
-						if(sock.id === gameRooms[roomId][0].id) {
-							sock.write(JSON.stringify({type: "gameRestarted", data: newPlayerData[0]}));
-						} 
-						if(sock.id === gameRooms[roomId][1].id) {
-							sock.write(JSON.stringify({type: "gameRestarted", data: newPlayerData[1]}));
-						}
-					})
+				sockets.forEach(function (sock) {
+					if (sock.id === gameRooms[roomId][0].id) {
+						sock.write(JSON.stringify({ type: "tie" }));
+					}
+					if (sock.id === gameRooms[roomId][1].id) {
+						sock.write(JSON.stringify({ type: "tie" }));
+					}
+				});
 
-					wss.clients.forEach(client => { 
-						if(client.id === gameRooms[roomId][0].id) {
-							client.send(JSON.stringify({type: "gameRestarted", data: newPlayerData[0]}));
-						} 
-						if(client.id === gameRooms[roomId][1].id) {
-							client.send(JSON.stringify({type: "gameRestarted", data: newPlayerData[1]}));
+				// web Client
+				wss.clients.forEach((client) => {
+					if (client.id === gameRooms[roomId][0].id) {
+						client.send(JSON.stringify({ type: "tie" }));
+					}
+					if (client.id === gameRooms[roomId][1].id) {
+						client.send(JSON.stringify({ type: "tie" }));
+					}
+				});
+			}
+
+			if (message.type === "playedMove") {
+				console.log("playedMove");
+				console.log("playedMove", message.data);
+				const movePlayed = message.data;
+				var otherPlayer = getOtherPlayer(movePlayed.player);
+
+				var playerRoom = movePlayed.player.roomId;
+
+				info = {
+					boxPlayed: movePlayed.box,
+					letter: movePlayed.player.letter,
+				};
+
+				/// TCP
+				sockets.forEach(function (sock) {
+					if (sock.id === otherPlayer.id) {
+						sock.write(
+							JSON.stringify({ type: "yourTurn", data: info })
+						);
+					}
+					if (sock.id === movePlayed.player.id) {
+						sock.write(JSON.stringify({ type: "otherTurn" }));
+					}
+				});
+				wss.clients.forEach((client) => {
+					if (client.id === otherPlayer.id) {
+						client.send(
+							JSON.stringify({ type: "yourTurn", data: info })
+						);
+					}
+					if (client.id === movePlayed.player.id) {
+						client.send(JSON.stringify({ type: "otherTurn" }));
+					}
+				});
+			}
+
+			if (message.type === "restartGame") {
+				const roomId = message.data;
+
+				playersRematch++;
+				if (playersRematch == 2) {
+					newPlayerData = randomizePlayerTurn(gameRooms[roomId]);
+
+					sockets.forEach((sock) => {
+						if (sock.id === gameRooms[roomId][0].id) {
+							sock.write(
+								JSON.stringify({
+									type: "gameRestarted",
+									data: newPlayerData[0],
+								})
+							);
 						}
-					})
-					playersRematch = 0
+						if (sock.id === gameRooms[roomId][1].id) {
+							sock.write(
+								JSON.stringify({
+									type: "gameRestarted",
+									data: newPlayerData[1],
+								})
+							);
+						}
+					});
+
+					wss.clients.forEach((client) => {
+						if (client.id === gameRooms[roomId][0].id) {
+							client.send(
+								JSON.stringify({
+									type: "gameRestarted",
+									data: newPlayerData[0],
+								})
+							);
+						}
+						if (client.id === gameRooms[roomId][1].id) {
+							client.send(
+								JSON.stringify({
+									type: "gameRestarted",
+									data: newPlayerData[1],
+								})
+							);
+						}
+					});
+					playersRematch = 0;
 				}
 			}
 		}
-    });
+	});
 
-
-    // Add a 'close' event handler to this instance of socket
-    sock.on('end', function() {
+	// Add a 'close' event handler to this instance of socket
+	sock.on("end", function () {
 		// Code to handle the disconnect event
-		removePlayerFromRoom(sock.id)
-		
+		removePlayerFromRoom(sock.id);
+
 		//This means the player is alone as he does not have a room
-		if (!findPlayerRoom(sock.id)){
-			randomGame = initStartValues()
-		}else if (!(gameRooms[findPlayerRoom(sock.id)] == undefined)){ 
-			if (!(gameRooms[findPlayerRoom(sock.id)].length == 1)){
-				
-				var otherPlayerInfo = findOtherPlayer(sock.id)
-								
-				if (otherPlayerInfo != null){
-					var otherPlayer = getOtherPlayer(otherPlayerInfo)
-					if(otherPlayer){
-						sockets.forEach(sock => { 
-							if(sock.id === otherPlayer.id) {
-								sock.write(JSON.stringify({type: "playerDisconnect"}));
+		if (!findPlayerRoom(sock.id)) {
+			randomGame = initStartValues();
+		} else if (!(gameRooms[findPlayerRoom(sock.id)] == undefined)) {
+			if (!(gameRooms[findPlayerRoom(sock.id)].length == 1)) {
+				var otherPlayerInfo = findOtherPlayer(sock.id);
+
+				if (otherPlayerInfo != null) {
+					var otherPlayer = getOtherPlayer(otherPlayerInfo);
+					if (otherPlayer) {
+						sockets.forEach((sock) => {
+							if (sock.id === otherPlayer.id) {
+								sock.write(
+									JSON.stringify({ type: "playerDisconnect" })
+								);
 							}
-						})
+						});
 						// for web client
-						wss.clients.forEach(client => { 
-							if(client.id === otherPlayer.id) {
-								client.send(JSON.stringify({type: "playerDisconnect"}));
-							} 
-						})
+						wss.clients.forEach((client) => {
+							if (client.id === otherPlayer.id) {
+								client.send(
+									JSON.stringify({ type: "playerDisconnect" })
+								);
+							}
+						});
 					}
 				}
 			}
 		}
 
-        let index = sockets.findIndex(function(o) {
-            return o.remoteAddress === sock.remoteAddress && o.remotePort === sock.remotePort;
-        })
-        if (index !== -1) sockets.splice(index, 1);
-        console.log('CLOSED: ' + sock.remoteAddress + ' ' + sock.remotePort);
-    });
+		let index = sockets.findIndex(function (o) {
+			return (
+				o.remoteAddress === sock.remoteAddress &&
+				o.remotePort === sock.remotePort
+			);
+		});
+		if (index !== -1) sockets.splice(index, 1);
+		console.log("CLOSED: " + sock.remoteAddress + " " + sock.remotePort);
+	});
 });
 
-
 function isJsonString(str) {
-    try {
-        JSON.parse(str);
-    } catch (e) {
-        return false;
-    }
-    return true;
+	try {
+		JSON.parse(str);
+	} catch (e) {
+		return false;
+	}
+	return true;
 }
