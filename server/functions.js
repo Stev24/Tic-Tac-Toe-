@@ -38,7 +38,19 @@ function sendWinnerMessageToParticipants(player, otherPlayer, participants) {
 	});
 }
 
+function sendPlayedMoveToParticipants(movePlayed, otherPlayer, participants, info) {
+	participants.forEach((participant) => {
+        if (participant.id === otherPlayer.id) {
+            sendMessage(participant, JSON.stringify({ type: "yourTurn", data: info }))
+        }
+        if (participant.id === movePlayed.player.id) {
+            sendMessage(participant, JSON.stringify({ type: "otherTurn" }));
+        }
+	});
+}
+
 module.exports = {
 	sendTieMessageToParticipants,
 	sendWinnerMessageToParticipants,
+    sendPlayedMoveToParticipants
 };

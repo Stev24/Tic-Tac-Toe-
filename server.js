@@ -11,6 +11,7 @@ const {
 const {
 	sendTieMessageToParticipants,
 	sendWinnerMessageToParticipants,
+	sendPlayedMoveToParticipants,
 } = require("./server/functions");
 
 const http = require("http");
@@ -224,29 +225,18 @@ wss.on("connection", function (socket) {
 				letter: movePlayed.player.letter,
 			};
 
-			wss.clients.forEach((client) => {
-				if (client.id === otherPlayer.id) {
-					client.send(
-						JSON.stringify({ type: "yourTurn", data: info })
-					);
-				}
-				if (client.id === movePlayed.player.id) {
-					client.send(JSON.stringify({ type: "otherTurn" }));
-				}
-			});
-
-			/// TCP
-			sockets.forEach(function (sock) {
-				if (sock.id === otherPlayer.id) {
-					sock.write(
-						JSON.stringify({ type: "yourTurn", data: info })
-					);
-				}
-				if (sock.id === movePlayed.player.id) {
-					sock.write(JSON.stringify({ type: "otherTurn" }));
-				}
-				//sock.write(JSON.stringify({type: "gameStart"}));
-			});
+			sendPlayedMoveToParticipants(
+				movePlayed,
+				otherPlayer,
+				wss.clients,
+				info
+			);
+			sendPlayedMoveToParticipants(
+				movePlayed,
+				otherPlayer,
+				sockets,
+				info
+			);
 		}
 
 		if (message.type === "restartGame") {
@@ -496,27 +486,18 @@ serverTCP.on("connection", function (sock) {
 					letter: movePlayed.player.letter,
 				};
 
-				/// TCP
-				sockets.forEach(function (sock) {
-					if (sock.id === otherPlayer.id) {
-						sock.write(
-							JSON.stringify({ type: "yourTurn", data: info })
-						);
-					}
-					if (sock.id === movePlayed.player.id) {
-						sock.write(JSON.stringify({ type: "otherTurn" }));
-					}
-				});
-				wss.clients.forEach((client) => {
-					if (client.id === otherPlayer.id) {
-						client.send(
-							JSON.stringify({ type: "yourTurn", data: info })
-						);
-					}
-					if (client.id === movePlayed.player.id) {
-						client.send(JSON.stringify({ type: "otherTurn" }));
-					}
-				});
+				sendPlayedMoveToParticipants(
+					movePlayed,
+					otherPlayer,
+					wss.clients,
+					info
+				);
+				sendPlayedMoveToParticipants(
+					movePlayed,
+					otherPlayer,
+					sockets,
+					info
+				);
 			}
 
 			if (message.type === "restartGame") {
