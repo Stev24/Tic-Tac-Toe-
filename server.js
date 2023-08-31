@@ -13,7 +13,9 @@ const {
 	sendWinnerMessageToParticipants,
 	sendPlayedMoveToParticipants,
 	restartGame,
-	sendDisconnectMessage
+	sendDisconnectMessage,
+	gameStart,
+	gameStartWithGameRoom
 } = require("./server/functions");
 
 const http = require("http");
@@ -126,12 +128,10 @@ wss.on("connection", function (socket) {
 
 		if (randomGame.usersOn > 2) {
 			gameRooms[randomGame.roomId] = randomGame.playerData;
-			wss.clients.forEach(function (client) {
-				client.send(JSON.stringify({ type: "gameStart" }));
-			});
-			sockets.forEach(function (sock) {
-				sock.write(JSON.stringify({ type: "gameStart" }));
-			});
+
+			gameStart(sockets);
+			gameStart(wss.clients);
+
 			randomGame = initStartValues();
 		}
 	} else if (gameType == "createPrivate") {
@@ -174,23 +174,9 @@ wss.on("connection", function (socket) {
 				JSON.stringify({ type: "playersJoined", data: joinInfo })
 			);
 
-			wss.clients.forEach((client) => {
-				if (client.id === gameRooms[gameRoomId][0].id) {
-					client.send(JSON.stringify({ type: "gameStart" }));
-				}
-				if (client.id === gameRooms[gameRoomId][1].id) {
-					client.send(JSON.stringify({ type: "gameStart" }));
-				}
-			});
+			gameStartWithGameRoom(wss.clients, gameRooms, gameRoomId);
+			gameStartWithGameRoom(sockets, gameRooms, gameRoomId);
 
-			sockets.forEach((sock) => {
-				if (sock.id === gameRooms[gameRoomId][0].id) {
-					sock.write(JSON.stringify({ type: "gameStart" }));
-				}
-				if (sock.id === gameRooms[gameRoomId][1].id) {
-					sock.write(JSON.stringify({ type: "gameStart" }));
-				}
-			});
 		}
 	}
 
@@ -216,7 +202,6 @@ wss.on("connection", function (socket) {
 		}
 
 		if (message.type === "playedMove") {
-			console.log("playedMove", message.data);
 			const movePlayed = message.data;
 			var otherPlayer = getOtherPlayer(movePlayed.player);
 
@@ -306,7 +291,6 @@ serverTCP.on("connection", function (sock) {
 
 	sock.on("data", function (data) {
 		if (data == "random") {
-			console.log("random Oponent Game");
 
 			var joinInfo = {
 				id: sock.id,
@@ -328,13 +312,8 @@ serverTCP.on("connection", function (sock) {
 			if (randomGame.usersOn > 2) {
 				gameRooms[randomGame.roomId] = randomGame.playerData;
 
-				sockets.forEach(function (sock) {
-					sock.write(JSON.stringify({ type: "gameStart" }));
-				});
-
-				wss.clients.forEach(function (client) {
-					client.send(JSON.stringify({ type: "gameStart" }));
-				});
+				gameStart(sockets);
+				gameStart(wss.clients);
 
 				randomGame = initStartValues();
 			}
@@ -357,8 +336,6 @@ serverTCP.on("connection", function (sock) {
 		} else if (data.toString().match("gameCode")) {
 			const arrInfo = data.toString().split("-");
 			var gameRoomId = Number(arrInfo[1]);
-
-			console.log(gameRoomId);
 
 			if (gameRooms[gameRoomId] == undefined) {
 				sock.write(
@@ -384,23 +361,8 @@ serverTCP.on("connection", function (sock) {
 					JSON.stringify({ type: "playersJoined", data: joinInfo })
 				);
 
-				sockets.forEach((sock) => {
-					if (sock.id === gameRooms[gameRoomId][0].id) {
-						sock.write(JSON.stringify({ type: "gameStart" }));
-					}
-					if (sock.id === gameRooms[gameRoomId][1].id) {
-						sock.write(JSON.stringify({ type: "gameStart" }));
-					}
-				});
-
-				wss.clients.forEach((client) => {
-					if (client.id === gameRooms[gameRoomId][0].id) {
-						client.send(JSON.stringify({ type: "gameStart" }));
-					}
-					if (client.id === gameRooms[gameRoomId][1].id) {
-						client.send(JSON.stringify({ type: "gameStart" }));
-					}
-				});
+				gameStartWithGameRoom(wss.clients, gameRooms, gameRoomId);
+				gameStartWithGameRoom(sockets, gameRooms, gameRoomId);
 			}
 		}
 
@@ -427,8 +389,7 @@ serverTCP.on("connection", function (sock) {
 			}
 
 			if (message.type === "playedMove") {
-				console.log("playedMove");
-				console.log("playedMove", message.data);
+				
 				const movePlayed = message.data;
 				var otherPlayer = getOtherPlayer(movePlayed.player);
 

@@ -38,40 +38,76 @@ function sendWinnerMessageToParticipants(player, otherPlayer, participants) {
 	});
 }
 
-function sendPlayedMoveToParticipants(movePlayed, otherPlayer, participants, info) {
+function sendPlayedMoveToParticipants(
+	movePlayed,
+	otherPlayer,
+	participants,
+	info
+) {
 	participants.forEach((participant) => {
-        if (participant.id === otherPlayer.id) {
-            sendMessage(participant, JSON.stringify({ type: "yourTurn", data: info }))
-        }
-        if (participant.id === movePlayed.player.id) {
-            sendMessage(participant, JSON.stringify({ type: "otherTurn" }));
-        }
+		if (participant.id === otherPlayer.id) {
+			sendMessage(
+				participant,
+				JSON.stringify({ type: "yourTurn", data: info })
+			);
+		}
+		if (participant.id === movePlayed.player.id) {
+			sendMessage(participant, JSON.stringify({ type: "otherTurn" }));
+		}
 	});
 }
 
 function restartGame(gameRooms, roomId, playerData, participants) {
-    participants.forEach(participant => {
-      if (participant.id === gameRooms[roomId][0].id) {
-        sendMessage(participant, JSON.stringify({ type: "gameRestarted", data: playerData[0] }));
-      }
-      if (participant.id === gameRooms[roomId][1].id) {
-        sendMessage(participant, JSON.stringify({ type: "gameRestarted", data: playerData[1] }));
-      }
-    });
+	participants.forEach((participant) => {
+		if (participant.id === gameRooms[roomId][0].id) {
+			sendMessage(
+				participant,
+				JSON.stringify({ type: "gameRestarted", data: playerData[0] })
+			);
+		}
+		if (participant.id === gameRooms[roomId][1].id) {
+			sendMessage(
+				participant,
+				JSON.stringify({ type: "gameRestarted", data: playerData[1] })
+			);
+		}
+	});
 }
 
 function sendDisconnectMessage(participants, otherPlayer) {
-    participants.forEach((participant) => {
-        if (participant.id === otherPlayer.id) {
-            sendMessage(participant, JSON.stringify({ type: "playerDisconnect" }));
-        }
-    });
+	participants.forEach((participant) => {
+		if (participant.id === otherPlayer.id) {
+			sendMessage(
+				participant,
+				JSON.stringify({ type: "playerDisconnect" })
+			);
+		}
+	});
+}
+
+function gameStart(participants) {
+	participants.forEach(function (participant) {
+		sendMessage(participant, JSON.stringify({ type: "gameStart" }));
+	});
+}
+
+function gameStartWithGameRoom(participants, gameRooms, gameRoomId) {
+	participants.forEach(function (participant) {
+		if (
+			participant.id === gameRooms[gameRoomId][0].id ||
+			participant.id === gameRooms[gameRoomId][1].id
+		) {
+			sendMessage(participant, JSON.stringify({ type: "gameStart" }));
+		}
+	});
 }
 
 module.exports = {
 	sendTieMessageToParticipants,
 	sendWinnerMessageToParticipants,
-    sendPlayedMoveToParticipants,
-    restartGame,
-    sendDisconnectMessage
+	sendPlayedMoveToParticipants,
+	restartGame,
+	sendDisconnectMessage,
+	gameStart,
+    gameStartWithGameRoom
 };
