@@ -12,6 +12,8 @@ const {
 	sendTieMessageToParticipants,
 	sendWinnerMessageToParticipants,
 	sendPlayedMoveToParticipants,
+	restartGame,
+	sendDisconnectMessage
 } = require("./server/functions");
 
 const http = require("http");
@@ -246,44 +248,8 @@ wss.on("connection", function (socket) {
 			if (playersRematch == 2) {
 				newPlayerData = randomizePlayerTurn(gameRooms[roomId]);
 
-				wss.clients.forEach((client) => {
-					if (client.id === gameRooms[roomId][0].id) {
-						client.send(
-							JSON.stringify({
-								type: "gameRestarted",
-								data: newPlayerData[0],
-							})
-						);
-					}
-					if (client.id === gameRooms[roomId][1].id) {
-						client.send(
-							JSON.stringify({
-								type: "gameRestarted",
-								data: newPlayerData[1],
-							})
-						);
-					}
-				});
-
-				//TCP
-				sockets.forEach((sock) => {
-					if (sock.id === gameRooms[roomId][0].id) {
-						sock.write(
-							JSON.stringify({
-								type: "gameRestarted",
-								data: newPlayerData[0],
-							})
-						);
-					}
-					if (sock.id === gameRooms[roomId][1].id) {
-						sock.write(
-							JSON.stringify({
-								type: "gameRestarted",
-								data: newPlayerData[1],
-							})
-						);
-					}
-				});
+				restartGame(gameRooms, roomId, newPlayerData, wss.clients);
+				restartGame(gameRooms, roomId, newPlayerData, sockets);
 
 				playersRematch = 0;
 			}
@@ -304,21 +270,8 @@ wss.on("connection", function (socket) {
 				if (otherPlayerInfo != null) {
 					var otherPlayer = getOtherPlayer(otherPlayerInfo);
 					if (otherPlayer) {
-						wss.clients.forEach((client) => {
-							if (client.id === otherPlayer.id) {
-								client.send(
-									JSON.stringify({ type: "playerDisconnect" })
-								);
-							}
-						});
-						// TCP
-						sockets.forEach((sock) => {
-							if (sock.id === otherPlayer.id) {
-								sock.write(
-									JSON.stringify({ type: "playerDisconnect" })
-								);
-							}
-						});
+						sendDisconnectMessage(wss.clients, otherPlayer);
+						sendDisconnectMessage(sockets, otherPlayer);
 					}
 				}
 			}
@@ -507,43 +460,9 @@ serverTCP.on("connection", function (sock) {
 				if (playersRematch == 2) {
 					newPlayerData = randomizePlayerTurn(gameRooms[roomId]);
 
-					sockets.forEach((sock) => {
-						if (sock.id === gameRooms[roomId][0].id) {
-							sock.write(
-								JSON.stringify({
-									type: "gameRestarted",
-									data: newPlayerData[0],
-								})
-							);
-						}
-						if (sock.id === gameRooms[roomId][1].id) {
-							sock.write(
-								JSON.stringify({
-									type: "gameRestarted",
-									data: newPlayerData[1],
-								})
-							);
-						}
-					});
+					restartGame(gameRooms, roomId, newPlayerData, wss.clients);
+					restartGame(gameRooms, roomId, newPlayerData, sockets);
 
-					wss.clients.forEach((client) => {
-						if (client.id === gameRooms[roomId][0].id) {
-							client.send(
-								JSON.stringify({
-									type: "gameRestarted",
-									data: newPlayerData[0],
-								})
-							);
-						}
-						if (client.id === gameRooms[roomId][1].id) {
-							client.send(
-								JSON.stringify({
-									type: "gameRestarted",
-									data: newPlayerData[1],
-								})
-							);
-						}
-					});
 					playersRematch = 0;
 				}
 			}
@@ -565,21 +484,8 @@ serverTCP.on("connection", function (sock) {
 				if (otherPlayerInfo != null) {
 					var otherPlayer = getOtherPlayer(otherPlayerInfo);
 					if (otherPlayer) {
-						sockets.forEach((sock) => {
-							if (sock.id === otherPlayer.id) {
-								sock.write(
-									JSON.stringify({ type: "playerDisconnect" })
-								);
-							}
-						});
-						// for web client
-						wss.clients.forEach((client) => {
-							if (client.id === otherPlayer.id) {
-								client.send(
-									JSON.stringify({ type: "playerDisconnect" })
-								);
-							}
-						});
+						sendDisconnectMessage(wss.clients, otherPlayer);
+						sendDisconnectMessage(sockets, otherPlayer);
 					}
 				}
 			}

@@ -49,8 +49,29 @@ function sendPlayedMoveToParticipants(movePlayed, otherPlayer, participants, inf
 	});
 }
 
+function restartGame(gameRooms, roomId, playerData, participants) {
+    participants.forEach(participant => {
+      if (participant.id === gameRooms[roomId][0].id) {
+        sendMessage(participant, JSON.stringify({ type: "gameRestarted", data: playerData[0] }));
+      }
+      if (participant.id === gameRooms[roomId][1].id) {
+        sendMessage(participant, JSON.stringify({ type: "gameRestarted", data: playerData[1] }));
+      }
+    });
+}
+
+function sendDisconnectMessage(participants, otherPlayer) {
+    participants.forEach((participant) => {
+        if (participant.id === otherPlayer.id) {
+            sendMessage(participant, JSON.stringify({ type: "playerDisconnect" }));
+        }
+    });
+}
+
 module.exports = {
 	sendTieMessageToParticipants,
 	sendWinnerMessageToParticipants,
-    sendPlayedMoveToParticipants
+    sendPlayedMoveToParticipants,
+    restartGame,
+    sendDisconnectMessage
 };
