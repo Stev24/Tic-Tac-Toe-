@@ -1,23 +1,9 @@
-const {
-	getRandomInt,
-	findOtherPlayer,
-	getOtherPlayer,
-	findPlayerRoom,
-	randomizePlayerTurn,
-	initStartValues,
-	removePlayerFromRoom,
-} = require("./server/game");
+const { getRandomInt, initStartValues } = require("./server/game");
 
 const {
-	sendTieMessageToParticipants,
-	sendWinnerMessageToParticipants,
-	sendPlayedMoveToParticipants,
-	restartGame,
-	sendDisconnectMessage,
-	gameStart,
-	gameStartWithGameRoom,
 	chooseGameType,
-	gameHandler
+	gameHandler,
+	disconnectionHandler,
 } = require("./server/functions");
 
 const http = require("http");
@@ -113,7 +99,15 @@ const wss = new WebSocket.Server({ server });
 wss.on("connection", function (socket) {
 	socket.id = getRandomInt(1, 1000);
 
-	chooseGameType(gameType, randomGame, gameRooms, socket, sockets, wss, gameQuery);
+	chooseGameType(
+		gameType,
+		randomGame,
+		gameRooms,
+		socket,
+		sockets,
+		wss,
+		gameQuery
+	);
 
 	playersRematch = 0;
 
@@ -123,25 +117,7 @@ wss.on("connection", function (socket) {
 	});
 
 	socket.addEventListener("close", function () {
-		// Code to handle the disconnect event
-		removePlayerFromRoom(socket.id);
-
-		//This means the player is alone as he does not have a room
-		if (!findPlayerRoom(socket.id)) {
-			randomGame = initStartValues();
-		} else if (!(gameRooms[findPlayerRoom(socket.id)] == undefined)) {
-			if (!(gameRooms[findPlayerRoom(socket.id)].length == 1)) {
-				var otherPlayerInfo = findOtherPlayer(socket.id);
-
-				if (otherPlayerInfo != null) {
-					var otherPlayer = getOtherPlayer(otherPlayerInfo);
-					if (otherPlayer) {
-						sendDisconnectMessage(wss.clients, otherPlayer);
-						sendDisconnectMessage(sockets, otherPlayer);
-					}
-				}
-			}
-		}
+		disconnectionHandler(socket, gameRooms, wss, sockets);
 	});
 });
 
@@ -175,40 +151,12 @@ serverTCP.on("connection", function (sock) {
 
 		if (isJsonString(data)) {
 			message = JSON.parse(data);
-			gameHandler(message, wss, sockets, gameRooms)
+			gameHandler(message, wss, sockets, gameRooms);
 		}
 	});
 
-	// Add a 'close' event handler to this instance of socket
 	sock.on("end", function () {
-		// Code to handle the disconnect event
-		removePlayerFromRoom(sock.id);
-
-		//This means the player is alone as he does not have a room
-		if (!findPlayerRoom(sock.id)) {
-			randomGame = initStartValues();
-		} else if (!(gameRooms[findPlayerRoom(sock.id)] == undefined)) {
-			if (!(gameRooms[findPlayerRoom(sock.id)].length == 1)) {
-				var otherPlayerInfo = findOtherPlayer(sock.id);
-
-				if (otherPlayerInfo != null) {
-					var otherPlayer = getOtherPlayer(otherPlayerInfo);
-					if (otherPlayer) {
-						sendDisconnectMessage(wss.clients, otherPlayer);
-						sendDisconnectMessage(sockets, otherPlayer);
-					}
-				}
-			}
-		}
-
-		let index = sockets.findIndex(function (o) {
-			return (
-				o.remoteAddress === sock.remoteAddress &&
-				o.remotePort === sock.remotePort
-			);
-		});
-		if (index !== -1) sockets.splice(index, 1);
-		console.log("CLOSED: " + sock.remoteAddress + " " + sock.remotePort);
+		disconnectionHandler(sock, gameRooms, wss, sockets);
 	});
 });
 

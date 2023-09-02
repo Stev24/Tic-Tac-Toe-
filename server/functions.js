@@ -1,11 +1,9 @@
 const {
-	getRandomInt,
 	findOtherPlayer,
 	getOtherPlayer,
 	findPlayerRoom,
 	randomizePlayerTurn,
 	initStartValues,
-	removePlayerFromRoom,
 } = require("./game");
 
 
@@ -189,10 +187,9 @@ function chooseGameType(gameType, randomGame, gameRooms, socket, sockets, wss, g
 function gameHandler(message, wss, sockets, gameRooms) {
 	if (message.type === "winner") {
 		const player = message.data;
-		var otherPlayer = getOtherPlayer(player);
+		var otherPlayer = getOtherPlayer(player, gameRooms);
 
 		sendWinnerMessageToParticipants(player, otherPlayer, sockets);
-		//send to WEB client with websockets
 		sendWinnerMessageToParticipants(player, otherPlayer, wss.clients);
 	}
 
@@ -205,7 +202,7 @@ function gameHandler(message, wss, sockets, gameRooms) {
 
 	if (message.type === "playedMove") {
 		const movePlayed = message.data;
-		var otherPlayer = getOtherPlayer(movePlayed.player);
+		var otherPlayer = getOtherPlayer(movePlayed.player, gameRooms);
 
 		info = {
 			boxPlayed: movePlayed.box,
@@ -241,6 +238,27 @@ function gameHandler(message, wss, sockets, gameRooms) {
 	}
 }
 
+function disconnectionHandler (socket, gameRooms, wss, sockets) {
+	const roomId = findPlayerRoom(socket.id, gameRooms);
+
+	if (!roomId) {// if no rooms means no players .
+		randomGame = initStartValues();
+	} else if (!(gameRooms[roomId] == undefined)) {// we have room and is defined 
+		// if player has room
+		if (!(gameRooms[roomId].length == 1)) {// more than one player means 2 players
+			var otherPlayerInfo = findOtherPlayer(socket.id, gameRooms);
+
+			if (otherPlayerInfo != null) {
+				var otherPlayer = getOtherPlayer(otherPlayerInfo, gameRooms);
+				if (otherPlayer) {
+					sendDisconnectMessage(wss.clients, otherPlayer);
+					sendDisconnectMessage(sockets, otherPlayer);
+				}
+			}
+		}
+	}
+}
+
 module.exports = {
 	sendTieMessageToParticipants,
 	sendWinnerMessageToParticipants,
@@ -250,5 +268,6 @@ module.exports = {
 	gameStart,
     gameStartWithGameRoom,
 	chooseGameType,
-	gameHandler
+	gameHandler,
+	disconnectionHandler
 };

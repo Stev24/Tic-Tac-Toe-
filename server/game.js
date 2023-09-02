@@ -4,7 +4,8 @@ function getRandomInt(min, max) {
 
 //This sets the combination of what letter each player will get
 function assignLetter() {
-	number = getRandomInt(0, 1);
+	const number = getRandomInt(0, 1);
+	let players = [];
 	if (number == 0) {
 		players = ["X", "O"];
 	} else if (number == 1) {
@@ -15,7 +16,8 @@ function assignLetter() {
 
 //This sets the combination of who will start the game
 function assignTurn() {
-	number = getRandomInt(0, 1);
+	const number = getRandomInt(0, 1);
+	let turn = [];
 	if (number == 0) {
 		turn = [true, false];
 	} else if (number == 1) {
@@ -26,9 +28,9 @@ function assignTurn() {
 
 //This is when you don't have the playerData and you only have the player Id.
 //This returns the whole player data when only the playerId is available
-function findOtherPlayer(playerId) {
-	for (var room in gameRooms) {
-		for (var i = 0; i < gameRooms[room].length; i++) {
+function findOtherPlayer(playerId, gameRooms) {
+	for (const room in gameRooms) {
+		for (let i = 0; i < gameRooms[room].length; i++) {
 			gameRooms[room][i].id;
 			if (playerId == gameRooms[room][i].id) {
 				return gameRooms[room][i];
@@ -38,10 +40,10 @@ function findOtherPlayer(playerId) {
 }
 
 //This is when you have the playerData
-function getOtherPlayer(player) {
-	var playerData = gameRooms[player.roomId];
+function getOtherPlayer(player, gameRooms) {
+	const playerData = gameRooms[player.roomId];
 
-	var otherPlayer;
+	let otherPlayer;
 
 	if (playerData[0].playerNumber == player.playerNumber) {
 		otherPlayer = playerData[1];
@@ -52,23 +54,22 @@ function getOtherPlayer(player) {
 	return otherPlayer;
 }
 
-function findPlayerRoom(playerId) {
-	for (var room in gameRooms) {
-		for (var i = 0; i < gameRooms[room].length; i++) {
-			gameRooms[room][i].id;
-			if (playerId == gameRooms[room][i].id) {
-				return room;
+// find player's room
+function findPlayerRoom(playerId, gameRooms){
+	for (const room in gameRooms){
+		for (let i = 0; i < gameRooms[room].length; i++){
+			if (playerId == gameRooms[room][i].id){
+				return room
 			}
 		}
 	}
-
 	//This means the player does not have a room
-	return false;
+	return false
 }
 
 //This is used to switch who starts the game at every new game
 function randomizePlayerTurn(playerData) {
-	turn = assignTurn();
+	const turn = assignTurn();
 
 	playerData[0].turn = turn[0];
 	playerData[1].turn = turn[1];
@@ -81,13 +82,13 @@ function getRoomId() {
 }
 
 function initStartValues() {
-	letters = assignLetter();
-	turn = assignTurn();
-	playerData = [];
-	usersOn = 1;
-	roomId = getRoomId();
+	const letters = assignLetter();
+	const turn = assignTurn();
+	const playerData = [];
+	const usersOn = 1;
+	const roomId = getRoomId();
 
-	valueList = {
+	const valueList = {
 		letters: letters,
 		turn: turn,
 		playerData: playerData,
@@ -96,15 +97,6 @@ function initStartValues() {
 	};
 
 	return valueList;
-}
-
-function removePlayerFromRoom(playerId) {
-	for (var i = 0; i < playerData.length; i++) {
-		if (playerId == playerData[i].id) {
-			playerData.splice(i, 1);
-			return;
-		}
-	}
 }
 
 module.exports = {
@@ -117,5 +109,4 @@ module.exports = {
 	randomizePlayerTurn,
 	getRoomId,
 	initStartValues,
-	removePlayerFromRoom,
 };
