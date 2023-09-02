@@ -55,16 +55,16 @@ function getOtherPlayer(player, gameRooms) {
 }
 
 // find player's room
-function findPlayerRoom(playerId, gameRooms){
-	for (const room in gameRooms){
-		for (let i = 0; i < gameRooms[room].length; i++){
-			if (playerId == gameRooms[room][i].id){
-				return room
+function findPlayerRoom(playerId, gameRooms) {
+	for (const room in gameRooms) {
+		for (let i = 0; i < gameRooms[room].length; i++) {
+			if (playerId == gameRooms[room][i].id) {
+				return room;
 			}
 		}
 	}
 	//This means the player does not have a room
-	return false
+	return false;
 }
 
 //This is used to switch who starts the game at every new game
@@ -99,6 +99,13 @@ function initStartValues() {
 	return valueList;
 }
 
+function getGameType(gameQuery) {
+	for (key in gameQuery) {
+		gameType = key.toString();
+	}
+	return gameType;
+}
+
 module.exports = {
 	getRandomInt,
 	assignLetter,
@@ -109,4 +116,5 @@ module.exports = {
 	randomizePlayerTurn,
 	getRoomId,
 	initStartValues,
+	getGameType
 };

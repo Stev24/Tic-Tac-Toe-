@@ -1,4 +1,4 @@
-const { getRandomInt, initStartValues } = require("./server/game");
+const { getRandomInt, initStartValues, getGameType } = require("./server/game");
 
 const {
 	chooseGameType,
@@ -6,22 +6,17 @@ const {
 	disconnectionHandler,
 } = require("./server/functions");
 
+const { isJsonString, getContentType } = require("./server/helpers");
+
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const WebSocket = require("ws");
 
 const server = http.createServer();
-
 const publicPath = path.join(__dirname, "public");
 
 var gameType;
-function getGameType(gameQuery) {
-	for (key in gameQuery) {
-		gameType = key.toString();
-	}
-}
-
 var gameQuery;
 
 server.on("request", (req, res) => {
@@ -39,7 +34,7 @@ server.on("request", (req, res) => {
 		});
 	} else if (url.startsWith("/game")) {
 		gameQuery = require("url").parse(url, true).query;
-		getGameType(gameQuery);
+		gameType = getGameType(gameQuery);
 		const gamePath = path.join(__dirname, "views", "game.html");
 		fs.readFile(gamePath, "utf-8", (err, data) => {
 			if (err) {
@@ -76,23 +71,10 @@ server.on("request", (req, res) => {
 	}
 });
 
-function getContentType(filePath) {
-	const extname = path.extname(filePath);
-	switch (extname) {
-		case ".js":
-			return "text/javascript";
-		case ".css":
-			return "text/css";
-		case ".html":
-			return "text/html";
-		default:
-			return "application/octet-stream";
-	}
-}
+var randomGame = initStartValues();
+var gameRooms = {};
 
-randomGame = initStartValues();
-
-gameRooms = {};
+//**** Websockets connection */
 
 const wss = new WebSocket.Server({ server });
 
@@ -126,24 +108,16 @@ server.listen(PORT, () => {
 	console.log(`Server is listening on port ${PORT}`);
 });
 
-/// TCP Server
+//**** TCP Connection */
 
 const net = require("net");
-const port = 7070;
-const host = "127.0.0.1";
-
 const serverTCP = net.createServer();
-serverTCP.listen(port, host, () => {
-	console.log("TCP Server is running on port " + port + ".");
-});
 
 let sockets = [];
 
 serverTCP.on("connection", function (sock) {
 	sock.id = getRandomInt(1, 1000);
-	console.log("CONNECTED: " + sock.remoteAddress + ":" + sock.remotePort);
 	sockets.push(sock);
-
 	playersRematch = 0;
 
 	sock.on("data", function (data) {
@@ -160,11 +134,9 @@ serverTCP.on("connection", function (sock) {
 	});
 });
 
-function isJsonString(str) {
-	try {
-		JSON.parse(str);
-	} catch (e) {
-		return false;
-	}
-	return true;
-}
+const port = 7070;
+const host = "127.0.0.1";
+
+serverTCP.listen(port, host, () => {
+	console.log("TCP Server is running on port " + port + ".");
+});

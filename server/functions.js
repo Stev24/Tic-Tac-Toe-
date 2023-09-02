@@ -6,7 +6,6 @@ const {
 	initStartValues,
 } = require("./game");
 
-
 function sendMessage(participant, message) {
 	if (participant.send) {
 		// WebSocket client
@@ -111,7 +110,15 @@ function gameStartWithGameRoom(participants, gameRooms, gameRoomId) {
 	});
 }
 
-function chooseGameType(gameType, randomGame, gameRooms, socket, sockets, wss, gameQuery = null) {
+function chooseGameType(
+	gameType,
+	randomGame,
+	gameRooms,
+	socket,
+	sockets,
+	wss,
+	gameQuery = null
+) {
 	if (gameType == "random") {
 		const joinInfo = {
 			id: socket.id,
@@ -126,7 +133,10 @@ function chooseGameType(gameType, randomGame, gameRooms, socket, sockets, wss, g
 
 		randomGame.usersOn++;
 
-		sendMessage(socket, JSON.stringify({ type: "playersJoined", data: joinInfo }));
+		sendMessage(
+			socket,
+			JSON.stringify({ type: "playersJoined", data: joinInfo })
+		);
 
 		if (randomGame.usersOn > 2) {
 			gameRooms[randomGame.roomId] = randomGame.playerData;
@@ -147,13 +157,19 @@ function chooseGameType(gameType, randomGame, gameRooms, socket, sockets, wss, g
 			roomType: "private",
 			gameValues: privateGame,
 		};
-		sendMessage(socket, JSON.stringify({ type: "playersJoined", data: joinInfo }));
+		sendMessage(
+			socket,
+			JSON.stringify({ type: "playersJoined", data: joinInfo })
+		);
 
 		gameRooms[privateGame.roomId] = [joinInfo];
 	} else if (gameType == "gameCode") {
 		const gameRoomId = Number(gameQuery.gameCode);
 		if (gameRooms[gameRoomId] == undefined) {
-			sendMessage(socket, JSON.stringify({ type: "gameNotExist", data: gameRoomId }));
+			sendMessage(
+				socket,
+				JSON.stringify({ type: "gameNotExist", data: gameRoomId })
+			);
 		} else {
 			const gameValues = gameRooms[gameRoomId][0].gameValues;
 
@@ -170,18 +186,20 @@ function chooseGameType(gameType, randomGame, gameRooms, socket, sockets, wss, g
 
 			gameRooms[gameRoomId].push(joinInfo);
 
-			sendMessage(socket, JSON.stringify({ type: "playersJoined", data: joinInfo }));
+			sendMessage(
+				socket,
+				JSON.stringify({ type: "playersJoined", data: joinInfo })
+			);
 
 			gameStartWithGameRoom(wss.clients, gameRooms, gameRoomId);
 			gameStartWithGameRoom(sockets, gameRooms, gameRoomId);
-
 		}
 	}
 
 	return {
 		randomGame,
-		gameRooms
-	}
+		gameRooms,
+	};
 }
 
 function gameHandler(message, wss, sockets, gameRooms) {
@@ -215,12 +233,7 @@ function gameHandler(message, wss, sockets, gameRooms) {
 			wss.clients,
 			info
 		);
-		sendPlayedMoveToParticipants(
-			movePlayed,
-			otherPlayer,
-			sockets,
-			info
-		);
+		sendPlayedMoveToParticipants(movePlayed, otherPlayer, sockets, info);
 	}
 
 	if (message.type === "restartGame") {
@@ -238,14 +251,17 @@ function gameHandler(message, wss, sockets, gameRooms) {
 	}
 }
 
-function disconnectionHandler (socket, gameRooms, wss, sockets) {
+function disconnectionHandler(socket, gameRooms, wss, sockets) {
 	const roomId = findPlayerRoom(socket.id, gameRooms);
 
-	if (!roomId) {// if no rooms means no players .
+	if (!roomId) {
+		// if no rooms means no players .
 		randomGame = initStartValues();
-	} else if (!(gameRooms[roomId] == undefined)) {// we have room and is defined 
+	} else if (!(gameRooms[roomId] == undefined)) {
+		// we have room and is defined
 		// if player has room
-		if (!(gameRooms[roomId].length == 1)) {// more than one player means 2 players
+		if (!(gameRooms[roomId].length == 1)) {
+			// more than one player means 2 players
 			var otherPlayerInfo = findOtherPlayer(socket.id, gameRooms);
 
 			if (otherPlayerInfo != null) {
@@ -266,8 +282,8 @@ module.exports = {
 	restartGame,
 	sendDisconnectMessage,
 	gameStart,
-    gameStartWithGameRoom,
+	gameStartWithGameRoom,
 	chooseGameType,
 	gameHandler,
-	disconnectionHandler
+	disconnectionHandler,
 };
