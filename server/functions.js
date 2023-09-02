@@ -1,3 +1,14 @@
+const {
+	getRandomInt,
+	findOtherPlayer,
+	getOtherPlayer,
+	findPlayerRoom,
+	randomizePlayerTurn,
+	initStartValues,
+	removePlayerFromRoom,
+} = require("./game");
+
+
 function sendMessage(participant, message) {
 	if (participant.send) {
 		// WebSocket client
@@ -102,6 +113,134 @@ function gameStartWithGameRoom(participants, gameRooms, gameRoomId) {
 	});
 }
 
+function chooseGameType(gameType, randomGame, gameRooms, socket, sockets, wss, gameQuery = null) {
+	if (gameType == "random") {
+		const joinInfo = {
+			id: socket.id,
+			roomId: randomGame.roomId,
+			playerNumber: randomGame.usersOn,
+			letter: randomGame.letters[randomGame.usersOn - 1],
+			turn: randomGame.turn[randomGame.usersOn - 1],
+			roomType: "random",
+		};
+
+		randomGame.playerData.push(joinInfo);
+
+		randomGame.usersOn++;
+
+		sendMessage(socket, JSON.stringify({ type: "playersJoined", data: joinInfo }));
+
+		if (randomGame.usersOn > 2) {
+			gameRooms[randomGame.roomId] = randomGame.playerData;
+
+			gameStart(sockets);
+			gameStart(wss.clients);
+
+			randomGame = initStartValues();
+		}
+	} else if (gameType == "createPrivate") {
+		const privateGame = initStartValues();
+		const joinInfo = {
+			id: socket.id,
+			roomId: privateGame.roomId,
+			playerNumber: privateGame.usersOn,
+			letter: privateGame.letters[privateGame.usersOn - 1],
+			turn: privateGame.turn[privateGame.usersOn - 1],
+			roomType: "private",
+			gameValues: privateGame,
+		};
+		sendMessage(socket, JSON.stringify({ type: "playersJoined", data: joinInfo }));
+
+		gameRooms[privateGame.roomId] = [joinInfo];
+	} else if (gameType == "gameCode") {
+		const gameRoomId = Number(gameQuery.gameCode);
+		if (gameRooms[gameRoomId] == undefined) {
+			sendMessage(socket, JSON.stringify({ type: "gameNotExist", data: gameRoomId }));
+		} else {
+			const gameValues = gameRooms[gameRoomId][0].gameValues;
+
+			gameValues.usersOn++;
+
+			const joinInfo = {
+				id: socket.id,
+				roomId: gameValues.roomId,
+				playerNumber: gameValues.usersOn,
+				letter: gameValues.letters[gameValues.usersOn - 1],
+				turn: gameValues.turn[gameValues.usersOn - 1],
+				roomType: "private",
+			};
+
+			gameRooms[gameRoomId].push(joinInfo);
+
+			sendMessage(socket, JSON.stringify({ type: "playersJoined", data: joinInfo }));
+
+			gameStartWithGameRoom(wss.clients, gameRooms, gameRoomId);
+			gameStartWithGameRoom(sockets, gameRooms, gameRoomId);
+
+		}
+	}
+
+	return {
+		randomGame,
+		gameRooms
+	}
+}
+
+function gameHandler(message, wss, sockets, gameRooms) {
+	if (message.type === "winner") {
+		const player = message.data;
+		var otherPlayer = getOtherPlayer(player);
+
+		sendWinnerMessageToParticipants(player, otherPlayer, sockets);
+		//send to WEB client with websockets
+		sendWinnerMessageToParticipants(player, otherPlayer, wss.clients);
+	}
+
+	if (message.type === "tie") {
+		const roomId = message.data;
+
+		sendTieMessageToParticipants(roomId, wss.clients);
+		sendTieMessageToParticipants(roomId, sockets);
+	}
+
+	if (message.type === "playedMove") {
+		const movePlayed = message.data;
+		var otherPlayer = getOtherPlayer(movePlayed.player);
+
+		info = {
+			boxPlayed: movePlayed.box,
+			letter: movePlayed.player.letter,
+		};
+
+		sendPlayedMoveToParticipants(
+			movePlayed,
+			otherPlayer,
+			wss.clients,
+			info
+		);
+		sendPlayedMoveToParticipants(
+			movePlayed,
+			otherPlayer,
+			sockets,
+			info
+		);
+	}
+
+	if (message.type === "restartGame") {
+		const roomId = message.data;
+
+		playersRematch++;
+		if (playersRematch == 2) {
+			newPlayerData = randomizePlayerTurn(gameRooms[roomId]);
+
+			restartGame(gameRooms, roomId, newPlayerData, wss.clients);
+			restartGame(gameRooms, roomId, newPlayerData, sockets);
+
+			playersRematch = 0;
+		}
+	}
+}
+
 module.exports = {
 	sendTieMessageToParticipants,
 	sendWinnerMessageToParticipants,
@@ -109,5 +248,7 @@ module.exports = {
 	restartGame,
 	sendDisconnectMessage,
 	gameStart,
-    gameStartWithGameRoom
+    gameStartWithGameRoom,
+	chooseGameType,
+	gameHandler
 };

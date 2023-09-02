@@ -15,7 +15,9 @@ const {
 	restartGame,
 	sendDisconnectMessage,
 	gameStart,
-	gameStartWithGameRoom
+	gameStartWithGameRoom,
+	chooseGameType,
+	gameHandler
 } = require("./server/functions");
 
 const http = require("http");
@@ -110,135 +112,14 @@ const wss = new WebSocket.Server({ server });
 
 wss.on("connection", function (socket) {
 	socket.id = getRandomInt(1, 1000);
-	if (gameType == "random") {
-		var joinInfo = {
-			id: socket.id,
-			roomId: randomGame.roomId,
-			playerNumber: randomGame.usersOn,
-			letter: randomGame.letters[randomGame.usersOn - 1],
-			turn: randomGame.turn[randomGame.usersOn - 1],
-			roomType: "random",
-		};
 
-		randomGame.playerData.push(joinInfo);
-
-		randomGame.usersOn++;
-
-		socket.send(JSON.stringify({ type: "playersJoined", data: joinInfo }));
-
-		if (randomGame.usersOn > 2) {
-			gameRooms[randomGame.roomId] = randomGame.playerData;
-
-			gameStart(sockets);
-			gameStart(wss.clients);
-
-			randomGame = initStartValues();
-		}
-	} else if (gameType == "createPrivate") {
-		var privateGame = initStartValues();
-		var joinInfo = {
-			id: socket.id,
-			roomId: privateGame.roomId,
-			playerNumber: privateGame.usersOn,
-			letter: privateGame.letters[privateGame.usersOn - 1],
-			turn: privateGame.turn[privateGame.usersOn - 1],
-			roomType: "private",
-			gameValues: privateGame,
-		};
-		socket.send(JSON.stringify({ type: "playersJoined", data: joinInfo }));
-
-		gameRooms[privateGame.roomId] = [joinInfo];
-	} else if (gameType == "gameCode") {
-		var gameRoomId = Number(gameQuery.gameCode);
-		if (gameRooms[gameRoomId] == undefined) {
-			socket.send(
-				JSON.stringify({ type: "gameNotExist", data: gameRoomId })
-			);
-		} else {
-			var gameValues = gameRooms[gameRoomId][0].gameValues;
-
-			gameValues.usersOn++;
-
-			var joinInfo = {
-				id: socket.id,
-				roomId: gameValues.roomId,
-				playerNumber: gameValues.usersOn,
-				letter: gameValues.letters[gameValues.usersOn - 1],
-				turn: gameValues.turn[gameValues.usersOn - 1],
-				roomType: "private",
-			};
-
-			gameRooms[gameRoomId].push(joinInfo);
-
-			socket.send(
-				JSON.stringify({ type: "playersJoined", data: joinInfo })
-			);
-
-			gameStartWithGameRoom(wss.clients, gameRooms, gameRoomId);
-			gameStartWithGameRoom(sockets, gameRooms, gameRoomId);
-
-		}
-	}
+	chooseGameType(gameType, randomGame, gameRooms, socket, sockets, wss, gameQuery);
 
 	playersRematch = 0;
 
 	socket.addEventListener("message", (event) => {
 		const message = JSON.parse(event.data);
-
-		if (message.type === "winner") {
-			const player = message.data;
-			var otherPlayer = getOtherPlayer(player);
-
-			sendWinnerMessageToParticipants(player, otherPlayer, sockets);
-			//send to WEB client with websockets
-			sendWinnerMessageToParticipants(player, otherPlayer, wss.clients);
-		}
-
-		if (message.type === "tie") {
-			const roomId = message.data;
-
-			sendTieMessageToParticipants(roomId, wss.clients);
-			sendTieMessageToParticipants(roomId, sockets);
-		}
-
-		if (message.type === "playedMove") {
-			const movePlayed = message.data;
-			var otherPlayer = getOtherPlayer(movePlayed.player);
-
-			var playerRoom = movePlayed.player.roomId;
-
-			info = {
-				boxPlayed: movePlayed.box,
-				letter: movePlayed.player.letter,
-			};
-
-			sendPlayedMoveToParticipants(
-				movePlayed,
-				otherPlayer,
-				wss.clients,
-				info
-			);
-			sendPlayedMoveToParticipants(
-				movePlayed,
-				otherPlayer,
-				sockets,
-				info
-			);
-		}
-
-		if (message.type === "restartGame") {
-			const roomId = message.data;
-
-			playersRematch++;
-			if (playersRematch == 2) {
-				newPlayerData = randomizePlayerTurn(gameRooms[roomId]);
-
-				restartGame(gameRooms, roomId, newPlayerData, wss.clients);
-				restartGame(gameRooms, roomId, newPlayerData, sockets);
-
-				playersRematch = 0;
-			}
-		}
+		gameHandler(message, wss, sockets, gameRooms);
 	});
 
 	socket.addEventListener("close", function () {
@@ -290,143 +171,11 @@ serverTCP.on("connection", function (sock) {
 	playersRematch = 0;
 
 	sock.on("data", function (data) {
-		if (data == "random") {
-
-			var joinInfo = {
-				id: sock.id,
-				roomId: randomGame.roomId,
-				playerNumber: randomGame.usersOn,
-				letter: randomGame.letters[randomGame.usersOn - 1],
-				turn: randomGame.turn[randomGame.usersOn - 1],
-				roomType: "random",
-			};
-
-			randomGame.playerData.push(joinInfo);
-
-			randomGame.usersOn++;
-
-			sock.write(
-				JSON.stringify({ type: "playersJoined", data: joinInfo })
-			);
-
-			if (randomGame.usersOn > 2) {
-				gameRooms[randomGame.roomId] = randomGame.playerData;
-
-				gameStart(sockets);
-				gameStart(wss.clients);
-
-				randomGame = initStartValues();
-			}
-		} else if (data == "createPrivate") {
-			var privateGame = initStartValues();
-			var joinInfo = {
-				id: sock.id,
-				roomId: privateGame.roomId,
-				playerNumber: privateGame.usersOn,
-				letter: privateGame.letters[privateGame.usersOn - 1],
-				turn: privateGame.turn[privateGame.usersOn - 1],
-				roomType: "private",
-				gameValues: privateGame,
-			};
-			sock.write(
-				JSON.stringify({ type: "playersJoined", data: joinInfo })
-			);
-
-			gameRooms[privateGame.roomId] = [joinInfo];
-		} else if (data.toString().match("gameCode")) {
-			const arrInfo = data.toString().split("-");
-			var gameRoomId = Number(arrInfo[1]);
-
-			if (gameRooms[gameRoomId] == undefined) {
-				sock.write(
-					JSON.stringify({ type: "gameNotExist", data: gameRoomId })
-				);
-			} else {
-				var gameValues = gameRooms[gameRoomId][0].gameValues;
-
-				gameValues.usersOn++;
-
-				var joinInfo = {
-					id: sock.id,
-					roomId: gameValues.roomId,
-					playerNumber: gameValues.usersOn,
-					letter: gameValues.letters[gameValues.usersOn - 1],
-					turn: gameValues.turn[gameValues.usersOn - 1],
-					roomType: "private",
-				};
-
-				gameRooms[gameRoomId].push(joinInfo);
-
-				sock.write(
-					JSON.stringify({ type: "playersJoined", data: joinInfo })
-				);
-
-				gameStartWithGameRoom(wss.clients, gameRooms, gameRoomId);
-				gameStartWithGameRoom(sockets, gameRooms, gameRoomId);
-			}
-		}
+		chooseGameType(data, randomGame, gameRooms, sock, sockets, wss, null);
 
 		if (isJsonString(data)) {
 			message = JSON.parse(data);
-
-			if (message.type === "winner") {
-				const player = message.data;
-				var otherPlayer = getOtherPlayer(player);
-
-				sendWinnerMessageToParticipants(player, otherPlayer, sockets);
-				//send to WEB client with websockets
-				sendWinnerMessageToParticipants(
-					player,
-					otherPlayer,
-					wss.clients
-				);
-			}
-
-			if (message.type === "tie") {
-				const roomId = message.data;
-				sendTieMessageToParticipants(roomId, wss.clients);
-				sendTieMessageToParticipants(roomId, sockets);
-			}
-
-			if (message.type === "playedMove") {
-				
-				const movePlayed = message.data;
-				var otherPlayer = getOtherPlayer(movePlayed.player);
-
-				var playerRoom = movePlayed.player.roomId;
-
-				info = {
-					boxPlayed: movePlayed.box,
-					letter: movePlayed.player.letter,
-				};
-
-				sendPlayedMoveToParticipants(
-					movePlayed,
-					otherPlayer,
-					wss.clients,
-					info
-				);
-				sendPlayedMoveToParticipants(
-					movePlayed,
-					otherPlayer,
-					sockets,
-					info
-				);
-			}
-
-			if (message.type === "restartGame") {
-				const roomId = message.data;
-
-				playersRematch++;
-				if (playersRematch == 2) {
-					newPlayerData = randomizePlayerTurn(gameRooms[roomId]);
-
-					restartGame(gameRooms, roomId, newPlayerData, wss.clients);
-					restartGame(gameRooms, roomId, newPlayerData, sockets);
-
-					playersRematch = 0;
-				}
-			}
+			gameHandler(message, wss, sockets, gameRooms)
 		}
 	});
 
